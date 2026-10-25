@@ -1,12 +1,12 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
-import ObsidianAgentKbPlugin from './main';
+import type { OakbPluginApi } from './plugin-api';
 import { OakbSettings } from './types';
 import { Locale, setLocale, t } from './i18n';
 
 export class OakbSettingTab extends PluginSettingTab {
-  private plugin: ObsidianAgentKbPlugin;
+  private plugin: OakbPluginApi;
 
-  constructor(app: App, plugin: ObsidianAgentKbPlugin) {
+  constructor(app: App, plugin: OakbPluginApi) {
     super(app, plugin);
     this.plugin = plugin;
   }

@@ -10,7 +10,8 @@ export default class ObsidianAgentKbPlugin extends Plugin {
   private refreshTimer: number | null = null;
 
   async onload(): Promise<void> {
-    await this.loadSettings();
+    try {
+      await this.loadSettings();
     setLocale(this.settings.language);
     this.registerView(VIEW_TYPE_OAKB_REVIEW, (leaf: WorkspaceLeaf) => new OakbReviewView(leaf, this));
 
@@ -25,6 +26,11 @@ export default class ObsidianAgentKbPlugin extends Plugin {
     this.registerEvent(this.app.metadataCache.on('resolved', () => this.scheduleRefresh()));
     this.registerEvent(this.app.vault.on('delete', () => this.scheduleRefresh()));
     this.registerEvent(this.app.vault.on('rename', () => this.scheduleRefresh()));
+      console.debug('[Obsidian Agent KB] loaded');
+    } catch (error) {
+      console.error('[Obsidian Agent KB] load failed', error);
+      throw error;
+    }
   }
 
   onunload(): void {

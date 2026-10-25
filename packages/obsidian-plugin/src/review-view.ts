@@ -1,5 +1,5 @@
 import { ItemView, Notice, WorkspaceLeaf } from 'obsidian';
-import ObsidianAgentKbPlugin from './main';
+import type { OakbPluginApi } from './plugin-api';
 import { CardSummary, QueueName } from './types';
 import { duplicateGroups, filterCards, governanceStats, isStale, normalizeFolderPath, queueForCard, withRoot } from './domain';
 import { ReasonModal } from './reason-modal';
