@@ -37,6 +37,17 @@ export class OakbSettingTab extends PluginSettingTab {
     }
 
     new Setting(containerEl)
+      .setName('Stale after days')
+      .setDesc('Cards older than this appear in the Stale queue.')
+      .addText(text => text
+        .setValue(String(this.plugin.settings.staleDays))
+        .onChange(async value => {
+          const parsed = Number(value);
+          this.plugin.settings.staleDays = Number.isFinite(parsed) && parsed > 0 ? parsed : 180;
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
       .setName('Show governance scores')
       .setDesc('Display governance_score on review cards.')
       .addToggle(toggle => toggle

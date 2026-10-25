@@ -1,11 +1,26 @@
-import { ItemView, Notice, TFile, WorkspaceLeaf } from 'obsidian';
+import { ItemView, Notice, WorkspaceLeaf } from 'obsidian';
 import ObsidianAgentKbPlugin from './main';
-import { CardSummary } from './types';
+import { CardSummary, QueueName } from './types';
+import { duplicateGroups, filterCards, governanceStats, isStale, normalizeFolderPath, queueForCard, withRoot } from './domain';
+import { ReasonModal } from './reason-modal';
 
 export const VIEW_TYPE_OAKB_REVIEW = 'oakb-review-view';
+const QUEUES: Array<{ id: QueueName; label: string }> = [
+  { id: 'review', label: 'Review' },
+  { id: 'auto', label: 'Auto' },
+  { id: 'conflicts', label: 'Conflicts' },
+  { id: 'canonical', label: 'Canonical' },
+  { id: 'archive', label: 'Archive' },
+  { id: 'stale', label: 'Stale' }
+];
 
 export class OakbReviewView extends ItemView {
   private plugin: ObsidianAgentKbPlugin;
+  private queue: QueueName = 'review';
+  private query = '';
+  private minScore: number | null = null;
+  private confidence = '';
+  private selectedPath: string | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: ObsidianAgentKbPlugin) {
     super(leaf);
@@ -17,48 +32,18 @@ export class OakbReviewView extends ItemView {
   getDisplayText(): string { return 'Knowledge Review'; }
   getIcon(): string { return 'database'; }
 
-  async onOpen(): Promise<void> {
-    await this.renderQueue();
-  }
-
+  async onOpen(): Promise<void> { await this.renderQueue(); }
   async onClose(): Promise<void> {}
 
-  private folder(kind: 'reviewed' | 'auto'): string {
-    const s = this.plugin.settings;
-    return kind === 'reviewed' ? `${s.knowledgeRoot}/${s.reviewedFolder}` : `${s.knowledgeRoot}/${s.autoFolder}`;
+  private allCards(): CardSummary[] {
+    return this.plugin.collectCards();
   }
 
-  private async cards(): Promise<CardSummary[]> {
-    const reviewed = this.folder('reviewed');
-    const auto = this.folder('auto');
-    const files = this.app.vault.getMarkdownFiles().filter(file => {
-      return file.path.startsWith(`${reviewed}/`) || file.path.startsWith(`${auto}/`);
-    });
-
-    const cards: CardSummary[] = [];
-    for (const file of files) {
-      const cache = this.app.metadataCache.getFileCache(file);
-      const fm: Record<string, any> = cache?.frontmatter ?? {};
-      const folderKind: 'reviewed' | 'auto' = file.path.startsWith(`${reviewed}/`) ? 'reviewed' : 'auto';
-      cards.push({
-        file,
-        path: file.path,
-        basename: file.basename,
-        status: String(fm.status ?? 'unknown'),
-        score: typeof fm.governance_score === 'number' ? fm.governance_score : null,
-        confidence: String(fm.confidence ?? 'unknown'),
-        source: String(fm.source ?? ''),
-        tags: Array.isArray(fm.tags) ? fm.tags.map(String) : [],
-        title: String(fm.title ?? file.basename),
-        folderKind
-      });
-    }
-
-    return cards.sort((a, b) => {
-      const rank = a.folderKind === b.folderKind ? 0 : a.folderKind === 'reviewed' ? -1 : 1;
-      if (rank !== 0) return rank;
-      return (b.score ?? -1) - (a.score ?? -1);
-    });
+  private visibleCards(cards: CardSummary[]): CardSummary[] {
+    return filterCards(
+      cards.filter(card => queueForCard(card, this.plugin.settings) === this.queue),
+      { query: this.query, minScore: this.minScore, confidence: this.confidence }
+    );
   }
 
   private async renderQueue(): Promise<void> {
@@ -67,59 +52,137 @@ export class OakbReviewView extends ItemView {
     root.addClass('oakb-review');
 
     const header = root.createDiv({ cls: 'oakb-header' });
-    const title = header.createDiv({ cls: 'oakb-title', text: 'Knowledge Review' });
-    title.addClass('oakb-title');
-    const actions = header.createDiv({ cls: 'oakb-header-actions' });
-    actions.createEl('button', { text: 'Refresh', cls: 'mod-cta' }).addEventListener('click', async () => {
-      await this.renderQueue();
-    });
+    header.createDiv({ cls: 'oakb-title', text: 'Knowledge Review' });
+    const refresh = header.createDiv({ cls: 'oakb-header-actions' });
+    refresh.createEl('button', { text: 'Refresh' }).addEventListener('click', async () => await this.renderQueue());
 
     try {
-      const cards = await this.cards();
-      const summary = root.createDiv({ cls: 'oakb-summary' });
-      summary.createSpan({ text: `${cards.length} candidate card${cards.length === 1 ? '' : 's'}` });
+      const all = await this.allCards();
+      const stats = governanceStats(all, this.plugin.settings);
+      const conflicts = duplicateGroups(all).flat();
+      stats.conflicts = Math.max(stats.conflicts, conflicts.length);
 
-      if (cards.length === 0) {
-        root.createDiv({ cls: 'oakb-empty', text: 'No reviewed or auto knowledge cards found.' });
-        return;
+      const tabs = root.createDiv({ cls: 'oakb-tabs' });
+      for (const queue of QUEUES) {
+        const button = tabs.createEl('button', { text: `${queue.label} (${stats[queue.id]})`, cls: 'oakb-tab' });
+        if (this.queue === queue.id) button.addClass('is-active');
+        button.addEventListener('click', async () => {
+          this.queue = queue.id;
+          await this.renderQueue();
+        });
       }
 
-      const list = root.createDiv({ cls: 'oakb-list' });
-      for (const card of cards) {
-        const item = list.createDiv({ cls: 'oakb-card' });
-        const main = item.createDiv({ cls: 'oakb-card-main' });
-        const titleEl = main.createDiv({ cls: 'oakb-card-title', text: card.title });
-        titleEl.addEventListener('click', async () => {
-          const leaf = this.app.workspace.getLeaf('tab');
-          await leaf.openFile(card.file);
-        });
+      const controls = root.createDiv({ cls: 'oakb-controls' });
+      const search = controls.createEl('input', { type: 'search', placeholder: 'Search title, path, source…', cls: 'oakb-search' });
+      search.value = this.query;
+      search.addEventListener('input', async () => {
+        this.query = search.value;
+        await this.renderList(all);
+      });
 
-        const meta = main.createDiv({ cls: 'oakb-card-meta' });
-        meta.createSpan({ text: `status: ${card.status}` });
-        meta.createSpan({ text: `confidence: ${card.confidence}` });
-        if (this.plugin.settings.showScores && card.score !== null) {
-          meta.createSpan({ text: `score: ${card.score}` });
+      const score = controls.createEl('input', { type: 'number', placeholder: 'Min score', min: '0', max: '100' });
+      score.value = this.minScore === null ? '' : String(this.minScore);
+      score.addEventListener('input', async () => {
+        this.minScore = score.value === '' ? null : Math.max(0, Math.min(100, Number(score.value)));
+        await this.renderList(all);
+      });
+
+      const confidence = controls.createDiv({ cls: 'oakb-confidence' });
+      const confidenceOptions = ['', 'high', 'medium', 'low'];
+      for (const option of confidenceOptions) {
+        const button = confidence.createEl('button', { text: option || 'All', cls: this.confidence === option ? 'is-active' : '' });
+        button.addEventListener('click', async () => {
+          this.confidence = option;
+          await this.renderList(all);
+        });
+      }
+
+      if (this.queue === 'conflicts') {
+        const conflictPanel = root.createDiv({ cls: 'oakb-conflicts' });
+        conflictPanel.createDiv({ cls: 'oakb-section-title', text: 'Duplicate groups' });
+        const groups = duplicateGroups(all);
+        if (!groups.length) conflictPanel.createDiv({ text: 'No duplicate groups.' });
+        for (const group of groups) {
+          const item = conflictPanel.createDiv({ cls: 'oakb-conflict-group' });
+          for (const card of group) {
+            item.createDiv({ text: `${card.title} — ${card.path}` });
+          }
         }
-        meta.createSpan({ text: card.path });
-
-        const buttons = item.createDiv({ cls: 'oakb-card-actions' });
-        buttons.createEl('button', { text: 'Open' }).addEventListener('click', async () => {
-          await this.app.workspace.getLeaf('tab').openFile(card.file);
-        });
-        buttons.createEl('button', { text: 'Promote', cls: 'mod-cta' }).addEventListener('click', async () => {
-          await this.plugin.promoteCard(card.file, `${this.plugin.settings.knowledgeRoot}/${this.plugin.settings.canonicalFolder}`);
-          new Notice('Knowledge card promoted.');
-          await this.renderQueue();
-        });
-        buttons.createEl('button', { text: 'Archive' }).addEventListener('click', async () => {
-          await this.plugin.archiveCard(card.file);
-          new Notice('Knowledge card archived.');
-          await this.renderQueue();
-        });
       }
+
+      await this.renderList(all);
     } catch (error) {
       console.error(error);
       root.createDiv({ cls: 'oakb-error', text: `Failed to load review queue: ${error instanceof Error ? error.message : String(error)}` });
+    }
+  }
+
+  private async renderList(all: CardSummary[]): Promise<void> {
+    let list = this.contentEl.querySelector('.oakb-list');
+    if (!list) {
+      list = this.contentEl.createDiv({ cls: 'oakb-list' });
+    }
+    list.empty();
+    const cards = this.visibleCards(all);
+    if (!cards.length) {
+      list.createDiv({ cls: 'oakb-empty', text: 'No cards match this queue/filter.' });
+      return;
+    }
+
+    for (const card of cards) {
+      const stale = isStale(card, this.plugin.settings.staleDays);
+      const item = list.createDiv({ cls: 'oakb-card' });
+      if (this.selectedPath === card.path) item.addClass('is-selected');
+
+      const main = item.createDiv({ cls: 'oakb-card-main' });
+      const title = main.createDiv({ cls: 'oakb-card-title', text: card.title });
+      title.addEventListener('click', async () => {
+        this.selectedPath = this.selectedPath === card.path ? null : card.path;
+        await this.renderList(all);
+      });
+
+      const meta = main.createDiv({ cls: 'oakb-card-meta' });
+      meta.createSpan({ text: `status: ${card.status}` });
+      meta.createSpan({ text: `confidence: ${card.confidence}` });
+      if (this.plugin.settings.showScores && card.score !== null) meta.createSpan({ text: `score: ${card.score}` });
+      meta.createSpan({ text: `updated: ${card.updated || 'unknown'}` });
+      if (stale) meta.createSpan({ text: 'stale', cls: 'oakb-flag' });
+      if (card.duplicateOf) meta.createSpan({ text: `duplicate of: ${card.duplicateOf}`, cls: 'oakb-flag' });
+      if (card.governanceIssues.length) meta.createSpan({ text: `issues: ${card.governanceIssues.length}`, cls: 'oakb-flag' });
+
+      const buttons = item.createDiv({ cls: 'oakb-card-actions' });
+      buttons.createEl('button', { text: 'Open' }).addEventListener('click', async () => await this.app.workspace.getLeaf('tab').openFile(card.file));
+      buttons.createEl('button', { text: 'Source' }).addEventListener('click', async () => await this.plugin.openSource(card));
+
+      if (card.status !== 'review' && card.status !== 'canonical') {
+        buttons.createEl('button', { text: 'Mark reviewed' }).addEventListener('click', async () => {
+          await this.plugin.markReviewed(card.file);
+          new Notice('Marked for review.');
+          await this.renderQueue();
+        });
+      }
+      if (card.status !== 'canonical') {
+        buttons.createEl('button', { text: 'Promote', cls: 'mod-cta' }).addEventListener('click', async () => {
+          await this.plugin.promoteCard(card.file, `${normalizeFolderPath(this.plugin.settings.knowledgeRoot)}/${normalizeFolderPath(this.plugin.settings.canonicalFolder)}`);
+          new Notice('Knowledge card promoted.');
+          await this.renderQueue();
+        });
+      }
+      buttons.createEl('button', { text: 'Archive' }).addEventListener('click', async () => {
+        new ReasonModal(this.app, 'Archive knowledge card', async reason => {
+          await this.plugin.archiveCard(card.file, reason);
+          new Notice('Knowledge card archived.');
+          await this.renderQueue();
+        }).open();
+      });
+
+      if (this.selectedPath === card.path) {
+        const detail = item.createDiv({ cls: 'oakb-card-detail' });
+        detail.createDiv({ text: `Path: ${card.path}` });
+        detail.createDiv({ text: `Source: ${card.source || 'none'}` });
+        detail.createDiv({ text: `Tags: ${card.tags.length ? card.tags.join(', ') : 'none' }` });
+        if (card.governanceIssues.length) detail.createDiv({ text: `Governance issues: ${card.governanceIssues.join('; ')}` });
+      }
     }
   }
 }

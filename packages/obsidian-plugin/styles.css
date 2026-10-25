@@ -10,3 +10,19 @@
 .oakb-card-meta { display:flex; flex-wrap:wrap; gap:10px; font-size:.78em; opacity:.75; margin-bottom:8px; word-break:break-word; }
 .oakb-card-actions { display:flex; gap:6px; }
 .oakb-empty, .oakb-error { opacity:.75; padding:16px 0; }
+.oakb-tabs { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px; }
+.oakb-tab { border-radius:999px; padding:3px 9px; font-size:.78em; }
+.oakb-tab.is-active { background:var(--interactive-accent); color:var(--text-on-accent); }
+.oakb-controls { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:10px; }
+.oakb-search { flex:1 1 180px; }
+.oakb-confidence { display:flex; gap:4px; }
+.oakb-confidence button, .oakb-tab { background:var(--background-secondary); color:var(--text-normal); border:1px solid var(--background-modifier-border); }
+.oakb-confidence button.is-active { background:var(--interactive-accent); color:var(--text-on-accent); }
+.oakb-conflicts { border:1px solid var(--background-modifier-border); padding:8px; border-radius:8px; margin-bottom:10px; }
+.oakb-section-title { font-weight:650; margin-bottom:5px; }
+.oakb-conflict-group { padding:5px; border-radius:5px; background:var(--background-secondary); margin-bottom:5px; font-size:.8em; }
+.oakb-card.is-selected { border-color:var(--interactive-accent); }
+.oakb-card-detail { margin-top:8px; padding-top:8px; border-top:1px solid var(--background-modifier-border); font-size:.78em; opacity:.82; white-space:pre-wrap; }
+.oakb-flag { color:var(--text-warning); font-weight:600; }
+.oakb-modal-actions { display:flex; justify-content:flex-end; gap:6px; margin-top:10px; }
+.oakb-reason-input { width:100%; min-height:80px; }
