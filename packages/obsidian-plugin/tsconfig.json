@@ -4,7 +4,9 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "outDir": ".",
-    "rootDir": "src"
+    "rootDir": "src",
+    "target": "ES2022",
+    "skipLibCheck": true
   },
-  "include": ["src/**/*.ts"]
+  "files": ["src/main.ts"]
 }

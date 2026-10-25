@@ -1,0 +1,102 @@
+#!/bin/zsh
+set -euo pipefail
+export PATH="/Users/ken/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+APP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+[[ -f "$APP_ROOT/config/gateway.env" ]] && source "$APP_ROOT/config/gateway.env"
+
+VAULT="${KB_VAULT_ROOT}"
+ROOT="${APP_ROOT}"
+LOG_DIR="$ROOT/runtime/logs"
+LOCK="$ROOT/runtime/auto-ingest.lock"
+CODEX="${CODEX_BIN}"
+
+mkdir -p "$LOG_DIR" "$VAULT/03-knowledge/auto" "$VAULT/06-sources"
+
+cleanup() { rm -rf "$LOCK" 2>/dev/null || true; }
+trap cleanup EXIT INT TERM
+mkdir "$LOCK" 2>/dev/null || exit 0
+
+files=("${(@f)$({
+  find "$VAULT/01-inbox/human" -maxdepth 1 -type f -name '*.md' ! -name '.*'
+  find "$VAULT/01-inbox" -type f -path '*/messages/*.md' -name '*.md'
+} | sort -u)}")
+
+if [[ ${#files[@]} -eq 0 ]]; then
+  echo "$(date '+%F %T') no pending files" >> "$LOG_DIR/auto-ingest.log"
+  exit 0
+fi
+
+printf '%s\n' "===== hourly auto ingest started $(date '+%F %T') =====" >> "$LOG_DIR/auto-ingest.log"
+
+count=0
+for file in "${files[@]}"; do
+  [[ -f "$file" ]] || continue
+  rel="${file#"$VAULT/"}"
+  stamp="$(date '+%Y%m%d-%H%M%S')-$(jot -r 1 1000 9999 2>/dev/null || echo $RANDOM)"
+  last="$LOG_DIR/last-${stamp}.md"
+  log="$LOG_DIR/codex-${stamp}.log"
+
+  if [[ "$rel" == 01-inbox/human/* ]]; then
+    kind="source import"
+    prompt="处理知识库待入库文件：$rel
+
+严格按以下步骤执行：
+1. 读取这个文件的完整内容。
+2. 判断标题、类型和主题。
+3. 如果文件没有 YAML frontmatter，添加标准 frontmatter，字段包括 id、type: source、title、source_type、status: seed、imported、tags。
+4. 选择目标分类目录：06-sources/books、06-sources/reports、06-sources/frameworks、06-sources/methods、06-sources/docs、06-sources/articles、06-sources/papers。
+5. 将文件移动到对应目录，文件名使用小写英文短横线格式；不要删除内容，不要改写原文观点。
+6. 从原文提炼 3 到 7 张原子知识卡片，写入 03-knowledge/auto/。每张卡片只讲一个可复用概念、方法、事实或决策。
+7. 每张知识卡必须包含 YAML frontmatter：id、type: knowledge、title、status: auto、confidence、source、created、updated、tags。
+8. 每张知识卡正文包含：核心观点、适用范围、关键内容、来源、待确认。
+9. 更新 07-maps/SOURCE-INDEX.md，把移动后的 source 文件加入表格；如果已存在就更新路径，不要重复。
+10. 只处理这个文件，不要修改 03-knowledge/auto 以外的正式知识；不要修改 .git、.obsidian、AGENTS.md、00-contract。
+11. 不允许写入任何 API Key、Token、密码、私钥、数据库连接串或未脱敏个人信息。
+12. 完成后只输出一行 JSON：{\"source\":\"移动后的相对路径\",\"cards\":[\"每张知识卡相对路径\"]}"
+  else
+    kind="agent message"
+    prompt="处理知识库 Agent 消息：$rel
+
+严格按以下步骤执行：
+1. 读取这个消息的完整内容。
+2. 只提取可长期复用的内容：事实、决策、方法、架构、代码经验、用户偏好、项目约束。
+3. 如果有可复用内容，创建 0 到 5 张原子知识卡片，写入 03-knowledge/auto/。
+4. 每张知识卡必须包含 YAML frontmatter：id、type: knowledge、title、status: auto、confidence、source: \"$rel\"、created、updated、tags。
+5. 每张知识卡正文包含：核心观点、适用范围、关键内容、来源、待确认。
+6. 如果消息只是临时沟通、寒暄或重复内容，不要创建知识卡。
+7. 处理完成后，把原消息移动到 90-archive/messages/$(date '+%Y/%m/%d')/；如果目标文件已存在，在文件名后追加短横线数字。
+8. 不要修改 .git、.obsidian、AGENTS.md、00-contract、07-maps/AGENT-STATUS.md。
+9. 不允许写入任何 API Key、Token、密码、私钥、数据库连接串或未脱敏个人信息。
+10. 完成后只输出一行 JSON：{\"original\":\"原消息相对路径\",\"archive\":\"归档后的相对路径\",\"cards\":[\"每张知识卡相对路径\"]}"
+  fi
+
+  printf '%s\n' "processing [$kind] $rel" >> "$LOG_DIR/auto-ingest.log"
+
+  if "$CODEX" exec --sandbox workspace-write --cd "$VAULT" --skip-git-repo-check -o "$last" "$prompt" >> "$log" 2>&1; then
+    printf '%s\n' "success $rel" >> "$LOG_DIR/auto-ingest.log"
+  else
+    rc=$?
+    printf '%s\n' "failed rc=$rc $rel; left in place for retry" >> "$LOG_DIR/auto-ingest.log"
+    continue
+  fi
+
+  count=$((count + 1))
+  [[ "$count" -ge 5 ]] && break
+done
+
+"$ROOT/bin/kb-automate" inbox-triage >> "$LOG_DIR/auto-ingest.log" 2>&1 || true
+
+cd "$VAULT"
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  git add -A
+  if "$ROOT/bin/kb-secret-scan" "$VAULT" >> "$LOG_DIR/auto-ingest.log" 2>&1; then
+    git commit -m "chore: hourly ingest agent messages and sources" >> "$LOG_DIR/auto-ingest.log" 2>&1 || true
+    git pull --ff-only origin main >> "$LOG_DIR/auto-ingest.log" 2>&1 || true
+    git -c http.https://github.com.proxy= push origin main >> "$LOG_DIR/auto-ingest.log" 2>&1 || true
+  else
+    git reset >> "$LOG_DIR/auto-ingest.log" 2>&1 || true
+    echo "secret scan rejected auto commit" >> "$LOG_DIR/auto-ingest.log"
+  fi
+fi
+
+echo "$(date '+%F %T') processed $count files" >> "$LOG_DIR/auto-ingest.log"

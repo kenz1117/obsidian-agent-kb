@@ -1,0 +1,22 @@
+{
+  "vault_root": "~/Documents/ObsidianAgentKB",
+  "runtime_root": "~/Documents/ObsidianAgentKB/.oakb-runtime",
+  "agents": [
+    "codex",
+    "claude-code",
+    "cursor",
+    "kimi-code",
+    "generic-agent"
+  ],
+  "server": {
+    "name": "obsidian-agent-kb",
+    "version": "0.1.0",
+    "protocol_version": "2024-11-05"
+  },
+  "limits": {
+    "default_read_bytes": 65536,
+    "max_read_bytes": 262144,
+    "max_write_bytes": 262144,
+    "max_search_results": 50
+  }
+}

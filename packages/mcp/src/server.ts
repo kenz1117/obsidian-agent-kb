@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { TOOLS } from './tools.ts';
+import { TOOLS } from './tools.js';
 
 // SDK wiring will be added in the next milestone.
 // Keep this executable stable so agent configs can point to it early.

@@ -1,0 +1,136 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from oakb_gateway.env import load_gateway_env
+load_gateway_env()
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+
+def read_arg_file(path: str | None) -> str | None:
+    if not path:
+        return None
+    return Path(path).expanduser().resolve().read_text(encoding="utf-8")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(prog="kb", description="Knowledge Vault CLI fallback")
+    parser.add_argument("--agent", default=os.environ.get("KB_AGENT_ID"), help="Registered agent ID")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    sub.add_parser("context")
+    p = sub.add_parser("search")
+    p.add_argument("query")
+    p.add_argument("--limit", type=int, default=20)
+    p.add_argument("--regex", action="store_true")
+    p.add_argument("--case-sensitive", action="store_true")
+    p = sub.add_parser("read")
+    p.add_argument("path")
+    p.add_argument("--max-bytes", type=int, default=65536)
+    sub.add_parser("status")
+
+    p = sub.add_parser("inbox")
+    p.add_argument("--title", required=True)
+    p.add_argument("--content")
+    p.add_argument("--file")
+    p.add_argument("--slug")
+    p.add_argument("--confidence", choices=["low", "medium", "high"], default="medium")
+    p.add_argument("--tag", action="append", default=[])
+
+    p = sub.add_parser("session")
+    p.add_argument("--title", required=True)
+    p.add_argument("--content")
+    p.add_argument("--file")
+    p.add_argument("--slug")
+    p.add_argument("--result", choices=["completed", "partial", "failed"], default="completed")
+    p.add_argument("--tag", action="append", default=[])
+
+    p = sub.add_parser("message")
+    p.add_argument("--title", default="Agent message")
+    p.add_argument("--content")
+    p.add_argument("--file")
+    p.add_argument("--slug")
+    p.add_argument("--tag", action="append", default=[])
+
+    p = sub.add_parser("propose")
+    p.add_argument("--target", required=True)
+    p.add_argument("--reason", required=True)
+    p.add_argument("--content")
+    p.add_argument("--file", required=True)
+    p.add_argument("--evidence", default="待补充")
+    p.add_argument("--impact", default="待补充")
+    p.add_argument("--rollback", default="Git revert proposed content after review.")
+    p.add_argument("--slug")
+
+    args = parser.parse_args()
+    os.environ["KB_AGENT_ID"] = (args.agent or "").strip().lower()
+    from oakb_gateway import server
+
+    try:
+        if args.command == "context":
+            value = server.tool_get_context({})
+        elif args.command == "search":
+            value = server.tool_search({
+                "query": args.query,
+                "limit": args.limit,
+                "regex": args.regex,
+                "case_sensitive": args.case_sensitive,
+            })
+        elif args.command == "read":
+            value = server.tool_read_note({"path": args.path, "max_bytes": args.max_bytes})
+        elif args.command == "status":
+            value = server.tool_get_status({})
+            server.audit("cli.status", "", "success")
+        elif args.command == "inbox":
+            content = args.content or read_arg_file(args.file)
+            value = server.tool_create_inbox_card({
+                "title": args.title,
+                "content": content,
+                "slug": args.slug,
+                "confidence": args.confidence,
+                "tags": args.tag or None,
+            })
+        elif args.command == "session":
+            content = args.content or read_arg_file(args.file)
+            value = server.tool_create_session_note({
+                "title": args.title,
+                "content": content,
+                "slug": args.slug,
+                "result": args.result,
+                "tags": args.tag or None,
+            })
+        elif args.command == "message":
+            content = args.content or read_arg_file(args.file)
+            value = server.tool_create_message({
+                "title": args.title,
+                "content": content,
+                "slug": args.slug,
+                "tags": args.tag or None,
+            })
+        elif args.command == "propose":
+            value = server.tool_propose_update({
+                "target_path": args.target,
+                "reason": args.reason,
+                "proposed_content": read_arg_file(args.file),
+                "evidence": args.evidence,
+                "impact": args.impact,
+                "rollback_note": args.rollback,
+                "slug": args.slug,
+            })
+        else:
+            raise RuntimeError("unhandled command")
+        print(json.dumps(value, ensure_ascii=False, indent=2))
+        return 0
+    except server.JsonRpcError as exc:
+        print(json.dumps({"error": {"code": exc.code, "message": exc.message, "data": exc.data}}, ensure_ascii=False, indent=2), file=sys.stderr)
+        return 1
+
+if __name__ == "__main__":
+    raise SystemExit(main())

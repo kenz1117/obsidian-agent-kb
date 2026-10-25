@@ -1,19 +1,9 @@
-import { Plugin, WorkspaceLeaf } from 'obsidian';
-
-export const REVIEW_VIEW_TYPE = 'oakb-review-view';
-
-export class ReviewView implements WorkspaceLeafContent {
-  // Placeholder. Next milestone adds:
-  // - auto card queue
-  // - governance score
-  // - provenance panel
-  // - approve/reject/edit actions
-}
+import { Plugin } from 'obsidian';
 
 export default class ObsidianAgentKbPlugin extends Plugin {
-  async onload() {
+  override onload(): void {
     this.addRibbonIcon('database', 'Knowledge Review', () => {
-      // Register view implementation in next milestone.
+      // Review queue UI is implemented in 0.4.
     });
   }
 }

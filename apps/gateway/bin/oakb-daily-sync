@@ -1,0 +1,32 @@
+#!/bin/zsh
+set -euo pipefail
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+APP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+[[ -f "$APP_ROOT/config/gateway.env" ]] && source "$APP_ROOT/config/gateway.env"
+ROOT="${APP_ROOT}"
+VAULT="${KB_VAULT_ROOT}"
+LOG_DIR="$ROOT/runtime/logs"
+mkdir -p "$LOG_DIR"
+{
+  echo "===== $(date '+%Y-%m-%dT%H:%M:%S%z') ====="
+  "$ROOT/bin/kb-automate" all
+
+  for repo in "$VAULT" "$ROOT"; do
+    echo "--- repo: $repo ---"
+    git -C "$repo" add -A
+    if git -C "$repo" diff --cached --quiet; then
+      echo "No staged changes."
+      continue
+    fi
+
+    if ! "$ROOT/bin/kb-secret-scan" --staged "$repo"; then
+      echo "SECRET SCAN FAILED: commit skipped for $repo"
+      continue
+    fi
+
+    git -C "$repo" commit -m "chore: daily knowledge sync $(date '+%Y-%m-%d %H:%M')"
+    git -C "$repo" pull --ff-only origin main
+    git -C "$repo" push origin main
+  done
+  echo "===== done ====="
+} >> "$LOG_DIR/daily-sync.log" 2>&1

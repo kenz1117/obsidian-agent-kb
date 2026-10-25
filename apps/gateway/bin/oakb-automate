@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+from oakb_gateway.env import load_gateway_env
+load_gateway_env()
+from oakb_gateway import automation
+
+parser = argparse.ArgumentParser(prog="kb-automate", description="Knowledge Vault automation")
+sub = parser.add_subparsers(dest="command", required=True)
+sub.add_parser("inbox-triage")
+p = sub.add_parser("session-digest")
+p.add_argument("--date")
+sub.add_parser("decision-sync")
+sub.add_parser("status-sync")
+sub.add_parser("all")
+args = parser.parse_args()
+
+if args.command == "inbox-triage":
+    out = automation.inbox_triage()
+elif args.command == "session-digest":
+    out = automation.session_digest(args.date)
+elif args.command == "decision-sync":
+    out = automation.decision_sync()
+elif args.command == "status-sync":
+    out = automation.status_sync()
+else:
+    out = {
+        "inbox_triage": automation.inbox_triage(),
+        "session_digest": automation.session_digest(args.date if hasattr(args, "date") else None),
+        "decision_sync": automation.decision_sync(),
+        "status_sync": automation.status_sync(),
+    }
+print(json.dumps(out, ensure_ascii=False, indent=2))

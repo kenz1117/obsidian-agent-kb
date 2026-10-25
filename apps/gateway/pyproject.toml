@@ -1,0 +1,10 @@
+[project]
+name = "oakb-gateway"
+version = "0.1.0"
+description = "Operational local gateway for Obsidian Agent KB"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

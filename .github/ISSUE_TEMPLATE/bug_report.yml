@@ -1,0 +1,13 @@
+name: Bug report
+description: Report a defect
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes: { label: Description }
+  - type: textarea
+    id: reproduce
+    attributes: { label: Reproduction }
+  - type: textarea
+    id: expected
+    attributes: { label: Expected behavior }
