@@ -1,11 +1,12 @@
 import { ItemView, Notice, WorkspaceLeaf } from 'obsidian';
 import type { OakbPluginApi } from './plugin-api';
 import { CardSummary, QueueName } from './types';
+import { t, MessageKey } from './i18n';
 import { duplicateGroups, filterCards, governanceStats, isStale, normalizeFolderPath, queueForCard, withRoot } from './domain';
 import { ReasonModal } from './reason-modal';
 
 export const VIEW_TYPE_OAKB_REVIEW = 'oakb-review-view';
-const QUEUES: Array<{ id: QueueName; labelKey: MessageKey; label?: string }> = [
+const QUEUES: Array<{ id: QueueName; labelKey: MessageKey }> = [
   { id: 'review', labelKey: 'queueReview' },
   { id: 'auto', labelKey: 'queueAuto' },
   { id: 'conflicts', labelKey: 'queueConflicts' },
@@ -157,21 +158,21 @@ export class OakbReviewView extends ItemView {
       if (card.status !== 'review' && card.status !== 'canonical') {
         buttons.createEl('button', { text: t('markReviewed') }).addEventListener('click', async () => {
           await this.plugin.markReviewed(card.file);
-          new Notice('Marked for review.');
+          new Notice(t('reviewedNotice'));
           await this.renderQueue();
         });
       }
       if (card.status !== 'canonical') {
         buttons.createEl('button', { text: t('promote'), cls: 'mod-cta' }).addEventListener('click', async () => {
           await this.plugin.promoteCard(card.file, `${normalizeFolderPath(this.plugin.settings.knowledgeRoot)}/${normalizeFolderPath(this.plugin.settings.canonicalFolder)}`);
-          new Notice('Knowledge card promoted.');
+          new Notice(t('promoteSuccess'));
           await this.renderQueue();
         });
       }
       buttons.createEl('button', { text: t('archive') }).addEventListener('click', async () => {
         new ReasonModal(this.app, 'Archive knowledge card', async reason => {
           await this.plugin.archiveCard(card.file, reason);
-          new Notice('Knowledge card archived.');
+          new Notice(t('archiveSuccess'));
           await this.renderQueue();
         }).open();
       });
