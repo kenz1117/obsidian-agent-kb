@@ -14,8 +14,8 @@ export class ReasonModal extends Modal {
     area.setPlaceholder('Reason').setValue(this.value).onChange(value => this.value = value);
     area.inputEl.addClass('oakb-reason-input');
     const buttons = this.contentEl.createDiv({ cls: 'oakb-modal-actions' });
-    buttons.createEl('button', { text: 'Cancel' }).addEventListener('click', () => this.close());
-    buttons.createEl('button', { text: 'Confirm', cls: 'mod-cta' }).addEventListener('click', async () => {
+    buttons.createEl('button', { text: '取消' }).addEventListener('click', () => this.close());
+    buttons.createEl('button', { text: '确认', cls: 'mod-cta' }).addEventListener('click', async () => {
       this.close();
       await this.onSubmit(this.value || this.title);
     });

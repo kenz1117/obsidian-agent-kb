@@ -1,9 +1,9 @@
 {
   "id": "obsidian-agent-kb",
   "name": "Obsidian Agent KB",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "minAppVersion": "1.5.0",
-  "description": "Review, govern, promote, and audit AI agent knowledge.",
+  "description": "审阅、治理、晋升和审计 AI Agent 知识。",
   "author": "Obsidian Agent KB Contributors",
   "isDesktopOnly": true
 }

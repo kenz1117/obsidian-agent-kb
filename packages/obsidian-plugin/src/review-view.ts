@@ -5,13 +5,13 @@ import { duplicateGroups, filterCards, governanceStats, isStale, normalizeFolder
 import { ReasonModal } from './reason-modal';
 
 export const VIEW_TYPE_OAKB_REVIEW = 'oakb-review-view';
-const QUEUES: Array<{ id: QueueName; label: string }> = [
-  { id: 'review', label: 'Review' },
-  { id: 'auto', label: 'Auto' },
-  { id: 'conflicts', label: 'Conflicts' },
-  { id: 'canonical', label: 'Canonical' },
-  { id: 'archive', label: 'Archive' },
-  { id: 'stale', label: 'Stale' }
+const QUEUES: Array<{ id: QueueName; labelKey: MessageKey; label?: string }> = [
+  { id: 'review', labelKey: 'queueReview' },
+  { id: 'auto', labelKey: 'queueAuto' },
+  { id: 'conflicts', labelKey: 'queueConflicts' },
+  { id: 'canonical', labelKey: 'queueCanonical' },
+  { id: 'archive', labelKey: 'queueArchive' },
+  { id: 'stale', labelKey: 'queueStale' }
 ];
 
 export class OakbReviewView extends ItemView {
@@ -29,7 +29,7 @@ export class OakbReviewView extends ItemView {
   }
 
   getViewType(): string { return VIEW_TYPE_OAKB_REVIEW; }
-  getDisplayText(): string { return 'Knowledge Review'; }
+  getDisplayText(): string { return t('knowledgeReview'); }
   getIcon(): string { return 'database'; }
 
   async onOpen(): Promise<void> { await this.renderQueue(); }
@@ -52,9 +52,9 @@ export class OakbReviewView extends ItemView {
     root.addClass('oakb-review');
 
     const header = root.createDiv({ cls: 'oakb-header' });
-    header.createDiv({ cls: 'oakb-title', text: 'Knowledge Review' });
+    header.createDiv({ cls: 'oakb-title', text: t('knowledgeReview') });
     const refresh = header.createDiv({ cls: 'oakb-header-actions' });
-    refresh.createEl('button', { text: 'Refresh' }).addEventListener('click', async () => await this.renderQueue());
+    refresh.createEl('button', { text: t('refresh') }).addEventListener('click', async () => await this.renderQueue());
 
     try {
       const all = await this.allCards();
@@ -64,7 +64,7 @@ export class OakbReviewView extends ItemView {
 
       const tabs = root.createDiv({ cls: 'oakb-tabs' });
       for (const queue of QUEUES) {
-        const button = tabs.createEl('button', { text: `${queue.label} (${stats[queue.id]})`, cls: 'oakb-tab' });
+        const button = tabs.createEl('button', { text: `${t(queue.labelKey)} (${stats[queue.id]})`, cls: 'oakb-tab' });
         if (this.queue === queue.id) button.addClass('is-active');
         button.addEventListener('click', async () => {
           this.queue = queue.id;
@@ -73,14 +73,14 @@ export class OakbReviewView extends ItemView {
       }
 
       const controls = root.createDiv({ cls: 'oakb-controls' });
-      const search = controls.createEl('input', { type: 'search', placeholder: 'Search title, path, source…', cls: 'oakb-search' });
+      const search = controls.createEl('input', { type: 'search', placeholder: t('searchPlaceholder'), cls: 'oakb-search' });
       search.value = this.query;
       search.addEventListener('input', async () => {
         this.query = search.value;
         await this.renderList(all);
       });
 
-      const score = controls.createEl('input', { type: 'number', placeholder: 'Min score', min: '0', max: '100' });
+      const score = controls.createEl('input', { type: 'number', placeholder: t('minScore'), min: '0', max: '100' });
       score.value = this.minScore === null ? '' : String(this.minScore);
       score.addEventListener('input', async () => {
         this.minScore = score.value === '' ? null : Math.max(0, Math.min(100, Number(score.value)));
@@ -99,9 +99,9 @@ export class OakbReviewView extends ItemView {
 
       if (this.queue === 'conflicts') {
         const conflictPanel = root.createDiv({ cls: 'oakb-conflicts' });
-        conflictPanel.createDiv({ cls: 'oakb-section-title', text: 'Duplicate groups' });
+        conflictPanel.createDiv({ cls: 'oakb-section-title', text: t('duplicateGroups') });
         const groups = duplicateGroups(all);
-        if (!groups.length) conflictPanel.createDiv({ text: 'No duplicate groups.' });
+        if (!groups.length) conflictPanel.createDiv({ text: t('noDuplicateGroups') });
         for (const group of groups) {
           const item = conflictPanel.createDiv({ cls: 'oakb-conflict-group' });
           for (const card of group) {
@@ -113,7 +113,7 @@ export class OakbReviewView extends ItemView {
       await this.renderList(all);
     } catch (error) {
       console.error(error);
-      root.createDiv({ cls: 'oakb-error', text: `Failed to load review queue: ${error instanceof Error ? error.message : String(error)}` });
+      root.createDiv({ cls: 'oakb-error', text: `${t('loadFailed')} ${error instanceof Error ? error.message : String(error)}` });
     }
   }
 
@@ -125,7 +125,7 @@ export class OakbReviewView extends ItemView {
     list.empty();
     const cards = this.visibleCards(all);
     if (!cards.length) {
-      list.createDiv({ cls: 'oakb-empty', text: 'No cards match this queue/filter.' });
+      list.createDiv({ cls: 'oakb-empty', text: t('noMatch') });
       return;
     }
 
@@ -142,33 +142,33 @@ export class OakbReviewView extends ItemView {
       });
 
       const meta = main.createDiv({ cls: 'oakb-card-meta' });
-      meta.createSpan({ text: `status: ${card.status}` });
-      meta.createSpan({ text: `confidence: ${card.confidence}` });
-      if (this.plugin.settings.showScores && card.score !== null) meta.createSpan({ text: `score: ${card.score}` });
-      meta.createSpan({ text: `updated: ${card.updated || 'unknown'}` });
-      if (stale) meta.createSpan({ text: 'stale', cls: 'oakb-flag' });
-      if (card.duplicateOf) meta.createSpan({ text: `duplicate of: ${card.duplicateOf}`, cls: 'oakb-flag' });
-      if (card.governanceIssues.length) meta.createSpan({ text: `issues: ${card.governanceIssues.length}`, cls: 'oakb-flag' });
+      meta.createSpan({ text: `${t('status')}: ${card.status}` });
+      meta.createSpan({ text: `${t('confidence')}: ${card.confidence}` });
+      if (this.plugin.settings.showScores && card.score !== null) meta.createSpan({ text: `${t('score')}: ${card.score}` });
+      meta.createSpan({ text: `${t('updated')}: ${card.updated || t('none')}` });
+      if (stale) meta.createSpan({ text: t('stale'), cls: 'oakb-flag' });
+      if (card.duplicateOf) meta.createSpan({ text: `${t('duplicateOf')}: ${card.duplicateOf}`, cls: 'oakb-flag' });
+      if (card.governanceIssues.length) meta.createSpan({ text: `${t('issues')}: ${card.governanceIssues.length}`, cls: 'oakb-flag' });
 
       const buttons = item.createDiv({ cls: 'oakb-card-actions' });
-      buttons.createEl('button', { text: 'Open' }).addEventListener('click', async () => await this.app.workspace.getLeaf('tab').openFile(card.file));
-      buttons.createEl('button', { text: 'Source' }).addEventListener('click', async () => await this.plugin.openSource(card));
+      buttons.createEl('button', { text: t('open') }).addEventListener('click', async () => await this.app.workspace.getLeaf('tab').openFile(card.file));
+      buttons.createEl('button', { text: t('source') }).addEventListener('click', async () => await this.plugin.openSource(card));
 
       if (card.status !== 'review' && card.status !== 'canonical') {
-        buttons.createEl('button', { text: 'Mark reviewed' }).addEventListener('click', async () => {
+        buttons.createEl('button', { text: t('markReviewed') }).addEventListener('click', async () => {
           await this.plugin.markReviewed(card.file);
           new Notice('Marked for review.');
           await this.renderQueue();
         });
       }
       if (card.status !== 'canonical') {
-        buttons.createEl('button', { text: 'Promote', cls: 'mod-cta' }).addEventListener('click', async () => {
+        buttons.createEl('button', { text: t('promote'), cls: 'mod-cta' }).addEventListener('click', async () => {
           await this.plugin.promoteCard(card.file, `${normalizeFolderPath(this.plugin.settings.knowledgeRoot)}/${normalizeFolderPath(this.plugin.settings.canonicalFolder)}`);
           new Notice('Knowledge card promoted.');
           await this.renderQueue();
         });
       }
-      buttons.createEl('button', { text: 'Archive' }).addEventListener('click', async () => {
+      buttons.createEl('button', { text: t('archive') }).addEventListener('click', async () => {
         new ReasonModal(this.app, 'Archive knowledge card', async reason => {
           await this.plugin.archiveCard(card.file, reason);
           new Notice('Knowledge card archived.');
@@ -178,10 +178,10 @@ export class OakbReviewView extends ItemView {
 
       if (this.selectedPath === card.path) {
         const detail = item.createDiv({ cls: 'oakb-card-detail' });
-        detail.createDiv({ text: `Path: ${card.path}` });
-        detail.createDiv({ text: `Source: ${card.source || 'none'}` });
-        detail.createDiv({ text: `Tags: ${card.tags.length ? card.tags.join(', ') : 'none' }` });
-        if (card.governanceIssues.length) detail.createDiv({ text: `Governance issues: ${card.governanceIssues.join('; ')}` });
+        detail.createDiv({ text: `${t('path')}: ${card.path}` });
+        detail.createDiv({ text: `${t('sourceLabel')}: ${card.source || t('none')}` });
+        detail.createDiv({ text: `${t('tags')}: ${card.tags.length ? card.tags.join(', ') : t('none')}` });
+        if (card.governanceIssues.length) detail.createDiv({ text: `${t('issues')}: ${card.governanceIssues.join('; ')}` });
       }
     }
   }

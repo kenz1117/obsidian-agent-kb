@@ -2,6 +2,7 @@ import { Notice, Plugin, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian';
 import { DEFAULT_SETTINGS, CardSummary, OakbSettings } from './types';
 import { OakbReviewView, VIEW_TYPE_OAKB_REVIEW } from './review-view';
 import { OakbSettingTab } from './settings-tab';
+import { setLocale, t } from './i18n';
 import { normalizeFolderPath } from './domain';
 
 export default class ObsidianAgentKbPlugin extends Plugin {
@@ -10,14 +11,15 @@ export default class ObsidianAgentKbPlugin extends Plugin {
 
   async onload(): Promise<void> {
     await this.loadSettings();
+    setLocale(this.settings.language);
     this.registerView(VIEW_TYPE_OAKB_REVIEW, (leaf: WorkspaceLeaf) => new OakbReviewView(leaf, this));
 
     this.addRibbonIcon('database', 'Open Knowledge Review', async () => await this.activateView());
 
-    this.addCommand({ id: 'open-knowledge-review', name: 'Open knowledge review', callback: async () => await this.activateView() });
-    this.addCommand({ id: 'refresh-knowledge-review', name: 'Refresh knowledge review', callback: async () => await this.refreshView() });
-    this.addCommand({ id: 'review-current-note', name: 'Send current note to review', checkCallback: checking => this.currentNoteAction(checking) });
-    this.addCommand({ id: 'archive-current-note', name: 'Archive current note', checkCallback: checking => this.currentNoteAction(checking, 'archive') });
+    this.addCommand({ id: 'open-knowledge-review', name: t('commandOpen'), callback: async () => await this.activateView() });
+    this.addCommand({ id: 'refresh-knowledge-review', name: t('commandRefresh'), callback: async () => await this.refreshView() });
+    this.addCommand({ id: 'review-current-note', name: t('commandReviewNote'), checkCallback: checking => this.currentNoteAction(checking) });
+    this.addCommand({ id: 'archive-current-note', name: t('commandArchiveNote'), checkCallback: checking => this.currentNoteAction(checking, 'archive') });
 
     this.addSettingTab(new OakbSettingTab(this.app, this));
     this.registerEvent(this.app.metadataCache.on('resolved', () => this.scheduleRefresh()));
@@ -100,7 +102,7 @@ export default class ObsidianAgentKbPlugin extends Plugin {
     const file = this.app.workspace.getActiveFile();
     if (!(file instanceof TFile) || !file.path.startsWith(`${this.settings.knowledgeRoot}/`)) return false;
     if (checking) return true;
-    if (action === 'archive') void this.archiveCard(file, 'archived from active note');
+    if (action === 'archive') void this.archiveCard(file, t('archivedFromNote'));
     else void this.markReviewed(file);
   }
 
@@ -142,7 +144,7 @@ export default class ObsidianAgentKbPlugin extends Plugin {
     if (!leaf) {
       const rightLeaf = workspace.getRightLeaf(false);
       if (!rightLeaf) {
-        new Notice('Unable to create Knowledge Review pane.');
+        new Notice(t('unablePane'));
         return;
       }
       await rightLeaf.setViewState({ type: VIEW_TYPE_OAKB_REVIEW, active: true });
@@ -156,7 +158,7 @@ export default class ObsidianAgentKbPlugin extends Plugin {
   async openSource(card: CardSummary): Promise<void> {
     const source = card.source;
     if (!source) {
-      new Notice('This card has no source path.');
+      new Notice(t('noSource'));
       return;
     }
     const resolved = this.app.metadataCache.getFirstLinkfileDest(source.replace(/^\[\[|\]\]$/g, ''));
@@ -164,7 +166,7 @@ export default class ObsidianAgentKbPlugin extends Plugin {
       await this.app.workspace.getLeaf('tab').openFile(resolved);
       return;
     }
-    new Notice(`Source not found: ${source}`);
+    new Notice(`${t('sourceMissing')} ${source}`);
   }
 
   async markReviewed(file: TFile): Promise<void> {

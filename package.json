@@ -1,6 +1,6 @@
 {
   "name": "obsidian-agent-kb",
-  "version": "0.2.0",
+  "version": "0.3.1",
   "private": true,
   "description": "A local-first, Obsidian-compatible knowledge operating system for AI agents.",
   "license": "Apache-2.0",

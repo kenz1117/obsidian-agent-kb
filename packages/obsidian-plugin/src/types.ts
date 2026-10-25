@@ -1,4 +1,5 @@
 import { TFile } from 'obsidian';
+import type { Locale } from './i18n';
 import { GovernedCard } from './domain';
 
 export interface OakbSettings {
@@ -10,6 +11,7 @@ export interface OakbSettings {
   reviewer: string;
   staleDays: number;
   showScores: boolean;
+  language: Locale;
 }
 
 export const DEFAULT_SETTINGS: OakbSettings = {
@@ -20,7 +22,8 @@ export const DEFAULT_SETTINGS: OakbSettings = {
   archiveRoot: '90-archive/governance/manual',
   reviewer: 'human',
   staleDays: 180,
-  showScores: true
+  showScores: true,
+  language: 'zh'
 };
 
 export interface CardSummary extends GovernedCard {
