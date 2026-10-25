@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Obsidian Agent KB Governance Policy",
+  "type": "object",
+  "required": ["version", "intake", "sensitivity", "duplicate", "quality", "routing", "retention", "promotion", "purge"],
+  "properties": {
+    "version": { "type": "integer" },
+    "intake": {
+      "type": "object",
+      "required": ["allowed_types", "max_body_bytes", "reject_if_missing"],
+      "properties": {
+        "allowed_types": { "type": "array", "items": { "type": "string" } },
+        "max_body_bytes": { "type": "integer", "minimum": 1 },
+        "reject_if_missing": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "sensitivity": {
+      "type": "object",
+      "required": ["default", "reject", "require_review"],
+      "properties": {
+        "default": { "type": "string" },
+        "reject": { "type": "array", "items": { "type": "string" } },
+        "require_review": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "duplicate": { "type": "object" },
+    "quality": {
+      "type": "object",
+      "required": ["min_review_score", "min_canonical_score", "weights"],
+      "properties": {
+        "min_review_score": { "type": "integer" },
+        "min_canonical_score": { "type": "integer" },
+        "weights": { "type": "object" }
+      }
+    },
+    "routing": { "type": "object" },
+    "retention": { "type": "object" },
+    "promotion": { "type": "object" },
+    "purge": { "type": "object" }
+  }
+}

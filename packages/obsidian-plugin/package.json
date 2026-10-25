@@ -1,0 +1,14 @@
+{
+  "name": "@oakb/obsidian-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Obsidian review dashboard for governed AI agent knowledge.",
+  "main": "main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "obsidian": "latest"
+  }
+}

@@ -1,0 +1,78 @@
+version: 1
+
+intake:
+  allowed_types:
+    - message
+    - source
+    - knowledge
+    - session
+  max_body_bytes: 262144
+  reject_if_missing:
+    - id
+    - type
+    - title
+    - status
+    - source
+    - origin
+    - confidence
+    - sensitivity
+    - created
+    - updated
+    - tags
+
+sensitivity:
+  default: internal
+  reject:
+    - secret
+  require_review:
+    - confidential
+    - personal
+
+duplicate:
+  exact_body_hash: reject
+  normalized_title_similarity: 0.92
+  semantic_similarity: 0.94
+  same_source_new_evidence: version
+  conflicting_conclusion: conflict_review
+
+quality:
+  min_review_score: 60
+  min_canonical_score: 80
+  weights:
+    provenance: 20
+    actionability: 20
+    uniqueness: 15
+    evidence: 15
+    freshness: 10
+    specificity: 10
+    sensitivity_safety: 10
+
+routing:
+  score_below_40: reject
+  score_40_to_59: temporary
+  score_60_to_79: review
+  score_80_plus: canonical_review
+
+retention:
+  raw_agent_message_days: 30
+  failed_card_days: 7
+  knowledge_review_days: 180
+  archive_review_days: 365
+
+promotion:
+  require_provenance: true
+  require_source: true
+  require_no_duplicate: true
+  require_human_approval: true
+  auto_approve_if:
+    confidence: high
+    quality_score_min: 90
+    sensitivity:
+      - public
+      - internal
+    reviewed_by: governance-engine
+
+purge:
+  require_confirmation: true
+  allowed_statuses:
+    - archive

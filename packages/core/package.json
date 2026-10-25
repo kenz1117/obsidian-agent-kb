@@ -1,0 +1,16 @@
+{
+  "name": "@oakb/core",
+  "version": "0.1.0",
+  "description": "Core domain model and governance engine for Obsidian Agent KB.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0"
+  }
+}
