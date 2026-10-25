@@ -16,7 +16,7 @@ CONFIG_PATH = Path(os.environ.get("KB_CONFIG_PATH", _local_config if _local_conf
 CONFIG = json.loads(CONFIG_PATH.read_text("utf-8")) if CONFIG_PATH.exists() else {}
 VAULT = Path(os.environ.get("KB_VAULT_ROOT", CONFIG.get("vault_root", "."))).expanduser().resolve()
 AGENT_ID = os.environ.get("KB_AGENT_ID", "").strip().lower()
-_config_agents = CONFIG.get("agents") or os.environ.get("KB_AGENT_IDS", "").split(",")
+_config_agents = os.environ.get("KB_AGENT_IDS", "").split(",") if os.environ.get("KB_AGENT_IDS") else CONFIG.get("agents", [])
 REGISTERED_IDS = {str(item).strip().lower() for item in _config_agents if str(item).strip()}
 READ_CONTEXT_FILES = [
     "AGENTS.md",

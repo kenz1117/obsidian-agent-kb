@@ -1,0 +1,12 @@
+.oakb-review { padding: 12px; }
+.oakb-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.oakb-title { font-weight:650; font-size:1.05em; }
+.oakb-header-actions button { margin-left:6px; }
+.oakb-summary { opacity:.72; margin-bottom:12px; font-size:.85em; }
+.oakb-list { display:flex; flex-direction:column; gap:10px; }
+.oakb-card { border:1px solid var(--background-modifier-border); border-radius:8px; padding:10px; background:var(--background-secondary); }
+.oakb-card-title { font-weight:600; cursor:pointer; margin-bottom:5px; }
+.oakb-card-title:hover { color:var(--interactive-accent); }
+.oakb-card-meta { display:flex; flex-wrap:wrap; gap:10px; font-size:.78em; opacity:.75; margin-bottom:8px; word-break:break-word; }
+.oakb-card-actions { display:flex; gap:6px; }
+.oakb-empty, .oakb-error { opacity:.75; padding:16px 0; }

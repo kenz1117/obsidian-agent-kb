@@ -41,6 +41,24 @@ flowchart LR
   F -->|approve| D
 ```
 
+## Obsidian plugin
+
+Build and install locally:
+
+```bash
+pnpm install
+pnpm build
+scripts/install-obsidian-plugin.sh /absolute/path/to/vault
+```
+
+For release installs, download the `obsidian-agent-kb` CI/release artifact and copy `manifest.json`, `main.js`, and `styles.css` into:
+
+```text
+<vault>/.obsidian/plugins/obsidian-agent-kb/
+```
+
+The plugin provides a governed Knowledge Review queue, promotion, archive, settings, and provenance metadata.
+
 ## Packages
 
 | Package | Purpose |

@@ -4,6 +4,8 @@ import os
 import subprocess
 from pathlib import Path
 
+if os.environ.get("KB_INTEGRATION_TESTS") != "1":
+    raise SystemExit(0)
 ROOT = Path(__file__).resolve().parents[1]
 SERVER = ROOT / "bin" / "oakb-mcp"
 

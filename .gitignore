@@ -8,3 +8,16 @@ coverage/
 .DS_Store
 Obsidian
 .obsidian/workspace.json
+packages/obsidian-plugin/main.js
+packages/obsidian-plugin/main.js.map
+packages/obsidian-plugin/main.d.ts
+packages/obsidian-plugin/*.js.map
+packages/obsidian-plugin/review-view.js
+packages/obsidian-plugin/review-view.js.map
+packages/obsidian-plugin/review-view.d.ts
+packages/obsidian-plugin/settings-tab.js
+packages/obsidian-plugin/settings-tab.js.map
+packages/obsidian-plugin/settings-tab.d.ts
+packages/obsidian-plugin/types.js
+packages/obsidian-plugin/types.js.map
+packages/obsidian-plugin/types.d.ts

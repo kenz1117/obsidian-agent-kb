@@ -1,13 +1,22 @@
 # Obsidian Plugin
 
-The plugin is the human governance surface.
+Human governance surface for AI-generated knowledge.
 
-Planned views:
+## Features
 
-1. **Review Queue** — cards in `03-knowledge/auto/`
-2. **Conflict Queue** — duplicate and conflicting conclusions
-3. **Retention Dashboard** — stale, expired, and archived objects
-4. **Promotion Panel** — approve, reject, edit, and promote
-5. **Provenance Inspector** — source, agent, model, and task
+- Review queue for `reviewed` and `auto` cards
+- Governance score, status, confidence, source, and tags
+- Promote reviewed cards to `canonical`
+- Archive rejected or stale cards
+- Configurable knowledge folders and reviewer identity
+- Ribbon icon, command, settings tab, and refresh action
 
-The plugin never becomes the agent runtime.
+## Manual installation
+
+Copy these files into `<vault>/.obsidian/plugins/obsidian-agent-kb/`:
+
+```text
+manifest.json
+main.js
+styles.css
+```
