@@ -84,6 +84,7 @@ for file in "${files[@]}"; do
   [[ "$count" -ge 5 ]] && break
 done
 
+"$ROOT/bin/oakb-governance" scan >> "$LOG_DIR/auto-ingest.log" 2>&1 || true
 "$ROOT/bin/oakb-automate" inbox-triage >> "$LOG_DIR/auto-ingest.log" 2>&1 || true
 
 cd "$VAULT"

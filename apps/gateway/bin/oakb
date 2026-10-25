@@ -69,6 +69,20 @@ def main() -> int:
     p.add_argument("--rollback", default="Git revert proposed content after review.")
     p.add_argument("--slug")
 
+    p = sub.add_parser("governance")
+    p.add_argument("--action", choices=["scan", "doctor"], default="scan")
+
+    p = sub.add_parser("review")
+    p.add_argument("--action", choices=["list", "scan"], default="list")
+
+    p = sub.add_parser("promote")
+    p.add_argument("target")
+    p.add_argument("--reviewer", default="human")
+
+    p = sub.add_parser("archive")
+    p.add_argument("target")
+    p.add_argument("--reason", default="manual governance decision")
+
     args = parser.parse_args()
     os.environ["KB_AGENT_ID"] = (args.agent or "").strip().lower()
     from oakb_gateway import server
@@ -114,6 +128,18 @@ def main() -> int:
                 "slug": args.slug,
                 "tags": args.tag or None,
             })
+        elif args.command == "governance":
+            from oakb_gateway import governance
+            value = governance.scan() if args.action == "scan" else governance.doctor()
+        elif args.command == "review":
+            from oakb_gateway import governance
+            value = governance.scan() if args.action == "scan" else {"review_map": "07-maps/GOVERNANCE-REVIEW.md"}
+        elif args.command == "promote":
+            from oakb_gateway import governance
+            value = governance.promote(args.target, args.reviewer)
+        elif args.command == "archive":
+            from oakb_gateway import governance
+            value = governance.archive(args.target, args.reason)
         elif args.command == "propose":
             value = server.tool_propose_update({
                 "target_path": args.target,

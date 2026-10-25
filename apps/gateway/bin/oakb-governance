@@ -1,0 +1,26 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+import argparse, json, os, sys
+from pathlib import Path
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+from oakb_gateway.env import load_gateway_env
+load_gateway_env()
+from oakb_gateway import governance
+
+parser = argparse.ArgumentParser(prog="oakb-governance")
+sub = parser.add_subparsers(dest="command", required=True)
+sub.add_parser("scan")
+p = sub.add_parser("promote"); p.add_argument("target"); p.add_argument("--reviewer", default="human")
+p = sub.add_parser("archive"); p.add_argument("target"); p.add_argument("--reason", default="manual governance decision")
+sub.add_parser("doctor")
+args = parser.parse_args()
+try:
+    if args.command == "scan": value = governance.scan()
+    elif args.command == "promote": value = governance.promote(args.target, args.reviewer)
+    elif args.command == "archive": value = governance.archive(args.target, args.reason)
+    else: value = governance.doctor()
+    print(json.dumps(value, ensure_ascii=False, indent=2))
+except Exception as exc:
+    print(json.dumps({"error": str(exc)}, ensure_ascii=False), file=sys.stderr)
+    raise SystemExit(1)

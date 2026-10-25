@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "required_fields": [
+    "id",
+    "type",
+    "title",
+    "status",
+    "source",
+    "confidence",
+    "created",
+    "updated",
+    "tags"
+  ],
+  "allowed_types": ["knowledge", "source", "message", "session", "decision", "map", "contract"],
+  "allowed_statuses": ["pending", "intake", "auto", "review", "canonical", "stale", "archive", "purge"],
+  "sensitivity": {
+    "default": "internal",
+    "reject": ["secret"],
+    "require_review": ["confidential", "personal"]
+  },
+  "quality": {
+    "min_review": 60,
+    "min_canonical": 80,
+    "reject_below": 40
+  },
+  "duplicate": {
+    "body_hash": "reject",
+    "normalized_title_similarity": 0.92
+  },
+  "routing": {
+    "score_below_40": "archive",
+    "score_40_to_59": "temporary",
+    "score_60_to_79": "review",
+    "score_80_plus": "canonical_review"
+  },
+  "promotion": {
+    "require_status": "review",
+    "min_score": 80,
+    "allowed_confidence": ["medium", "high"],
+    "forbidden_sensitivity": ["secret"],
+    "reviewer": "human-or-governance-engine"
+  }
+}
