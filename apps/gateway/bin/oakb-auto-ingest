@@ -84,12 +84,12 @@ for file in "${files[@]}"; do
   [[ "$count" -ge 5 ]] && break
 done
 
-"$ROOT/bin/kb-automate" inbox-triage >> "$LOG_DIR/auto-ingest.log" 2>&1 || true
+"$ROOT/bin/oakb-automate" inbox-triage >> "$LOG_DIR/auto-ingest.log" 2>&1 || true
 
 cd "$VAULT"
 if ! git diff --quiet || ! git diff --cached --quiet; then
   git add -A
-  if "$ROOT/bin/kb-secret-scan" "$VAULT" >> "$LOG_DIR/auto-ingest.log" 2>&1; then
+  if "$ROOT/bin/oakb-secret-scan" "$VAULT" >> "$LOG_DIR/auto-ingest.log" 2>&1; then
     git commit -m "chore: hourly ingest agent messages and sources" >> "$LOG_DIR/auto-ingest.log" 2>&1 || true
     git pull --ff-only origin main >> "$LOG_DIR/auto-ingest.log" 2>&1 || true
     git -c http.https://github.com.proxy= push origin main >> "$LOG_DIR/auto-ingest.log" 2>&1 || true

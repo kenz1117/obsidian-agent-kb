@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SERVER = ROOT / "bin" / "kb-mcp"
+SERVER = ROOT / "bin" / "oakb-mcp"
 VAULT = Path(os.environ["KB_VAULT_ROOT"]).expanduser().resolve()
 token = datetime.now().strftime("%Y%m%d-%H%M%S")
 

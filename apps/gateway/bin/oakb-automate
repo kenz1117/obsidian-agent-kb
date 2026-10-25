@@ -12,7 +12,7 @@ from oakb_gateway.env import load_gateway_env
 load_gateway_env()
 from oakb_gateway import automation
 
-parser = argparse.ArgumentParser(prog="kb-automate", description="Knowledge Vault automation")
+parser = argparse.ArgumentParser(prog="oakb-automate", description="Knowledge Vault automation")
 sub = parser.add_subparsers(dest="command", required=True)
 sub.add_parser("inbox-triage")
 p = sub.add_parser("session-digest")

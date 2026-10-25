@@ -10,7 +10,9 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
-CONFIG_PATH = Path(os.environ.get("KB_CONFIG_PATH", ROOT / "config" / "gateway.json"))
+_default_config = ROOT / "config" / "gateway.json"
+_local_config = ROOT / "config" / "gateway.local.json"
+CONFIG_PATH = Path(os.environ.get("KB_CONFIG_PATH", _local_config if _local_config.exists() else _default_config))
 CONFIG = json.loads(CONFIG_PATH.read_text("utf-8")) if CONFIG_PATH.exists() else {}
 VAULT = Path(os.environ.get("KB_VAULT_ROOT", CONFIG.get("vault_root", "."))).expanduser().resolve()
 AGENT_ID = os.environ.get("KB_AGENT_ID", "").strip().lower()
