@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { duplicateGroups, filterCards, governanceStats, queueForCard, withRoot } from './domain.js';
+import { duplicateGroups, filterCards, governanceStats, normalizeFolderPath, promotionBlockers, queueForCard, withRoot } from './domain.js';
 import { DEFAULT_SETTINGS } from './types.js';
 
 const settings = DEFAULT_SETTINGS;
@@ -41,4 +41,19 @@ test('calculates queue stats', () => {
   const stats = governanceStats(cards, settings);
   assert.equal(stats.auto, 1);
   assert.equal(stats.canonical, 1);
+});
+
+test('rejects unsafe and ambiguous folder paths', () => {
+  assert.throws(() => normalizeFolderPath('../outside'));
+  assert.throws(() => normalizeFolderPath('knowledge/./auto'));
+  assert.throws(() => normalizeFolderPath('C:\\outside'));
+  assert.equal(normalizeFolderPath('/03-knowledge/auto/'), '03-knowledge/auto');
+});
+
+test('enforces promotion policy before mutation', () => {
+  assert.deepEqual(promotionBlockers(card('a.md', 'A', 'review')), []);
+  assert.ok(promotionBlockers(card('a.md', 'A', 'auto')).some(reason => reason.includes('status')));
+  assert.ok(promotionBlockers({ ...card('a.md', 'A', 'review'), score: 79 }).some(reason => reason.includes('80')));
+  assert.ok(promotionBlockers({ ...card('a.md', 'A', 'review'), confidence: 'low' }).some(reason => reason.includes('confidence')));
+  assert.ok(promotionBlockers({ ...card('a.md', 'A', 'review'), sensitivity: 'secret' }).some(reason => reason.includes('secret')));
 });

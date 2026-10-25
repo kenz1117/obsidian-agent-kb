@@ -22,9 +22,11 @@ export interface GovernedCard {
 }
 
 export function normalizeFolderPath(value: string): string {
+  if (typeof value !== 'string') throw new Error('Knowledge paths must be strings');
+  if (/[\0-\x1f]/.test(value) || /^[A-Za-z]:[\\/]/.test(value)) throw new Error('Knowledge paths must be relative and printable');
   const normalized = value.replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+/g, '/').replace(/\/+$/, '');
   if (!normalized || normalized === '.') return '';
-  if (normalized.split('/').some(part => part === '..')) throw new Error('Knowledge paths cannot contain ".."');
+  if (normalized.split('/').some(part => part === '..' || part === '.')) throw new Error('Knowledge paths cannot contain "." or ".."');
   return normalized;
 }
 
@@ -59,6 +61,16 @@ export function scoreBand(score: number | null): 'high' | 'medium' | 'low' | 'un
   return 'low';
 }
 
+/** Keep UI promotion rules aligned with config/governance.policy.json. */
+export function promotionBlockers(card: Pick<GovernedCard, 'status' | 'score' | 'confidence'> & { sensitivity?: unknown }): string[] {
+  const blockers: string[] = [];
+  if (card.status !== 'review' && card.status !== 'canonical') blockers.push(`status must be review, got ${card.status}`);
+  if (card.score === null || !Number.isFinite(card.score) || card.score < 80) blockers.push('governance score must be at least 80');
+  if (!['medium', 'high'].includes(card.confidence)) blockers.push('confidence must be medium or high');
+  if (card.sensitivity === 'secret') blockers.push('secret sensitivity cannot be promoted');
+  return blockers;
+}
+
 export function queueForCard(
   card: GovernedCard,
   settings: FolderSettings,
@@ -84,7 +96,7 @@ export interface CardFilter {
   confidence?: string;
 }
 
-export function filterCards(cards: GovernedCard[], filter: CardFilter): GovernedCard[] {
+export function filterCards<T extends GovernedCard>(cards: T[], filter: CardFilter): T[] {
   const query = (filter.query ?? '').trim().toLowerCase();
   return cards.filter(card => {
     if (filter.minScore !== null && filter.minScore !== undefined && (card.score === null || card.score < filter.minScore)) return false;

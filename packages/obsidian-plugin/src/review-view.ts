@@ -1,29 +1,29 @@
-import { ItemView, Notice, WorkspaceLeaf } from 'obsidian';
+import { ItemView, Notice, WorkspaceLeaf, setIcon } from 'obsidian';
 import type { OakbPluginApi } from './plugin-api';
-import { CardSummary, QueueName } from './types';
-import { t, MessageKey } from './i18n';
-import { duplicateGroups, filterCards, governanceStats, isStale, normalizeFolderPath, queueForCard, withRoot } from './domain';
+import type { CardSummary, QueueName } from './types';
+import { t, type MessageKey } from './i18n';
+import { duplicateGroups, filterCards, governanceStats, isStale, normalizeFolderPath, queueForCard } from './domain';
 import { ReasonModal } from './reason-modal';
 
 export const VIEW_TYPE_OAKB_REVIEW = 'oakb-review-view';
-const QUEUES: Array<{ id: QueueName; labelKey: MessageKey }> = [
+const QUEUES = [
   { id: 'review', labelKey: 'queueReview' },
   { id: 'auto', labelKey: 'queueAuto' },
   { id: 'conflicts', labelKey: 'queueConflicts' },
   { id: 'canonical', labelKey: 'queueCanonical' },
   { id: 'archive', labelKey: 'queueArchive' },
   { id: 'stale', labelKey: 'queueStale' }
-];
+] as const satisfies ReadonlyArray<{ id: QueueName; labelKey: MessageKey }>;
 
 export class OakbReviewView extends ItemView {
-  private plugin: ObsidianAgentKbPlugin;
+  private plugin: OakbPluginApi;
   private queue: QueueName = 'review';
   private query = '';
   private minScore: number | null = null;
   private confidence = '';
   private selectedPath: string | null = null;
 
-  constructor(leaf: WorkspaceLeaf, plugin: ObsidianAgentKbPlugin) {
+  constructor(leaf: WorkspaceLeaf, plugin: OakbPluginApi) {
     super(leaf);
     this.plugin = plugin;
     this.navigation = false;
@@ -36,7 +36,7 @@ export class OakbReviewView extends ItemView {
   async onOpen(): Promise<void> { await this.renderQueue(); }
   async onClose(): Promise<void> {}
 
-  private allCards(): CardSummary[] {
+  private async allCards(): Promise<CardSummary[]> {
     return this.plugin.collectCards();
   }
 
@@ -47,15 +47,23 @@ export class OakbReviewView extends ItemView {
     );
   }
 
-  private async renderQueue(): Promise<void> {
+  async renderQueue(): Promise<void> {
     const root = this.contentEl;
     root.empty();
     root.addClass('oakb-review');
 
     const header = root.createDiv({ cls: 'oakb-header' });
     header.createDiv({ cls: 'oakb-title', text: t('knowledgeReview') });
-    const refresh = header.createDiv({ cls: 'oakb-header-actions' });
-    refresh.createEl('button', { text: t('refresh') }).addEventListener('click', async () => await this.renderQueue());
+    const actions = header.createDiv({ cls: 'oakb-header-actions' });
+    const settings = actions.createEl('button', {
+      cls: 'oakb-icon-button',
+      attr: { 'aria-label': t('openSettings'), title: t('openSettings') }
+    });
+    setIcon(settings, 'settings');
+    settings.addEventListener('click', () => this.plugin.openSettings());
+    actions.createEl('button', { text: t('refresh') }).addEventListener('click', async () => await this.renderQueue());
+
+    await this.renderConnectionSummary(root);
 
     try {
       const all = await this.allCards();
@@ -81,7 +89,9 @@ export class OakbReviewView extends ItemView {
         await this.renderList(all);
       });
 
-      const score = controls.createEl('input', { type: 'number', placeholder: t('minScore'), min: '0', max: '100' });
+      const score = controls.createEl('input', { type: 'number', placeholder: t('minScore') });
+      score.min = '0';
+      score.max = '100';
       score.value = this.minScore === null ? '' : String(this.minScore);
       score.addEventListener('input', async () => {
         this.minScore = score.value === '' ? null : Math.max(0, Math.min(100, Number(score.value)));
@@ -115,6 +125,35 @@ export class OakbReviewView extends ItemView {
     } catch (error) {
       console.error(error);
       root.createDiv({ cls: 'oakb-error', text: `${t('loadFailed')} ${error instanceof Error ? error.message : String(error)}` });
+    }
+  }
+
+  private async renderConnectionSummary(root: HTMLElement): Promise<void> {
+    const state = this.plugin.getMcpState();
+    const summary = root.createDiv({
+      cls: state.running ? 'oakb-panel-connection is-running' : 'oakb-panel-connection',
+      attr: { title: t('openSettings') }
+    });
+    summary.addEventListener('click', () => this.plugin.openSettings());
+    try {
+      const [agents, recent] = await Promise.all([
+        this.plugin.getAgentStatuses(),
+        this.plugin.getRecentConnections()
+      ]);
+      const configured = agents.filter(agent => agent.state === 'configured').length;
+      summary.createDiv({
+        text: `${state.running ? '●' : '○'} ${state.running ? t('mcpRunning') : t('mcpStopped')} · ${configured} ${t('configuredSummary')}`
+      });
+      if (recent.length) {
+        summary.createDiv({
+          cls: 'oakb-panel-last-connection',
+          text: `${t('lastConnection')}: ${recent[0].name} · ${new Date(recent[0].connectedAt).toLocaleString()}`
+        });
+      } else {
+        summary.createDiv({ cls: 'oakb-panel-last-connection', text: t('noAgentConnections') });
+      }
+    } catch {
+      summary.setText(state.running ? t('mcpRunning') : t('mcpStopped'));
     }
   }
 
@@ -157,16 +196,24 @@ export class OakbReviewView extends ItemView {
 
       if (card.status !== 'review' && card.status !== 'canonical') {
         buttons.createEl('button', { text: t('markReviewed') }).addEventListener('click', async () => {
-          await this.plugin.markReviewed(card.file);
-          new Notice(t('reviewedNotice'));
-          await this.renderQueue();
+          try {
+            await this.plugin.markReviewed(card.file);
+            new Notice(t('reviewedNotice'));
+            await this.renderQueue();
+          } catch (error) {
+            new Notice(`${t('error')}: ${error instanceof Error ? error.message : String(error)}`);
+          }
         });
       }
       if (card.status !== 'canonical') {
         buttons.createEl('button', { text: t('promote'), cls: 'mod-cta' }).addEventListener('click', async () => {
-          await this.plugin.promoteCard(card.file, `${normalizeFolderPath(this.plugin.settings.knowledgeRoot)}/${normalizeFolderPath(this.plugin.settings.canonicalFolder)}`);
-          new Notice(t('promoteSuccess'));
-          await this.renderQueue();
+          try {
+            const promoted = await this.plugin.promoteCard(card.file, `${normalizeFolderPath(this.plugin.settings.knowledgeRoot)}/${normalizeFolderPath(this.plugin.settings.canonicalFolder)}`);
+            if (promoted) new Notice(t('promoteSuccess'));
+            await this.renderQueue();
+          } catch (error) {
+            new Notice(`${t('error')}: ${error instanceof Error ? error.message : String(error)}`);
+          }
         });
       }
       buttons.createEl('button', { text: t('archive') }).addEventListener('click', async () => {

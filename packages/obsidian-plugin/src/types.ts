@@ -1,6 +1,6 @@
 import { TFile } from 'obsidian';
 import type { Locale } from './i18n';
-import { GovernedCard } from './domain';
+import type { GovernedCard, QueueName } from './domain';
 
 export interface OakbSettings {
   knowledgeRoot: string;
@@ -12,6 +12,11 @@ export interface OakbSettings {
   staleDays: number;
   showScores: boolean;
   language: Locale;
+  initialized: boolean;
+  mcpEnabled: boolean;
+  mcpPort: number;
+  mcpToken: string;
+  agentTokens: Record<string, string>;
 }
 
 export const DEFAULT_SETTINGS: OakbSettings = {
@@ -23,7 +28,12 @@ export const DEFAULT_SETTINGS: OakbSettings = {
   reviewer: 'human',
   staleDays: 180,
   showScores: true,
-  language: 'zh'
+  language: 'zh',
+  initialized: false,
+  mcpEnabled: true,
+  mcpPort: 27183,
+  mcpToken: '',
+  agentTokens: {}
 };
 
 export interface CardSummary extends GovernedCard {
@@ -32,7 +42,6 @@ export interface CardSummary extends GovernedCard {
   confidence: string;
   source: string;
   tags: string[];
-  folderKind: 'reviewed' | 'auto';
   governanceIssues: string[];
 }
 

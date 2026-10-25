@@ -1,8 +1,8 @@
 {
   "name": "obsidian-agent-kb",
-  "version": "0.3.1",
+  "version": "0.6.0",
   "private": true,
-  "description": "A local-first, Obsidian-compatible knowledge operating system for AI agents.",
+  "description": "An all-in-one Obsidian plugin that gives AI agents a governed local knowledge base.",
   "license": "Apache-2.0",
   "packageManager": "pnpm@10.15.0",
   "engines": {
@@ -11,7 +11,9 @@
   "scripts": {
     "build": "pnpm -r build",
     "test": "pnpm -r test",
-    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "check": "pnpm typecheck && pnpm build && pnpm test",
+    "lint": "pnpm typecheck",
     "dev:cli": "pnpm --filter @oakb/cli dev",
     "dev:mcp": "pnpm --filter @oakb/mcp dev",
     "dev": "pnpm -r --parallel dev"

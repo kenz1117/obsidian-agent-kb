@@ -26,3 +26,19 @@
 .oakb-flag { color:var(--text-warning); font-weight:600; }
 .oakb-modal-actions { display:flex; justify-content:flex-end; gap:6px; margin-top:10px; }
 .oakb-reason-input { width:100%; min-height:80px; }
+.oakb-service-status { padding:10px 12px; border:1px solid var(--background-modifier-border); border-radius:8px; background:var(--background-secondary); }
+.oakb-service-status.is-running { color:var(--text-success); border-color:var(--color-green); }
+.oakb-service-error { color:var(--text-error); white-space:pre-wrap; }
+.oakb-icon-button { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; padding:4px; }
+.oakb-panel-connection { margin-bottom:10px; padding:9px 11px; border:1px solid var(--background-modifier-border); border-radius:8px; background:var(--background-secondary); cursor:pointer; font-size:.82em; }
+.oakb-panel-connection.is-running { border-color:var(--color-green); }
+.oakb-panel-last-connection { margin-top:4px; opacity:.72; }
+.oakb-connections { margin:8px 0 20px; padding:10px 12px; border:1px solid var(--background-modifier-border); border-radius:8px; }
+.oakb-connection-heading { margin:6px 0; font-weight:650; }
+.oakb-connection-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:6px 0; border-top:1px solid var(--background-modifier-border); font-size:.85em; }
+.oakb-connection-name { flex:1; overflow-wrap:anywhere; }
+.oakb-connection-state, .oakb-connection-time { flex-shrink:0; opacity:.78; font-size:.92em; }
+.oakb-connection-copy { flex-shrink:0; padding:3px 7px; font-size:.82em; }
+.oakb-connection-row.is-configured .oakb-connection-state, .oakb-connection-row.is-connected .oakb-connection-name { color:var(--text-success); }
+.oakb-connection-row.is-needs-update .oakb-connection-state, .oakb-connection-row.is-error .oakb-connection-state { color:var(--text-warning); }
+.oakb-connection-empty { padding:6px 0 10px; opacity:.68; font-size:.85em; }

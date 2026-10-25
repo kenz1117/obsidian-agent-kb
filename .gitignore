@@ -9,6 +9,8 @@ coverage/
 Obsidian
 .obsidian/workspace.json
 packages/obsidian-plugin/main.js
+packages/obsidian-plugin/service.js
+packages/obsidian-plugin/service-node
 packages/obsidian-plugin/main.js.map
 packages/obsidian-plugin/main.d.ts
 packages/obsidian-plugin/*.js.map
@@ -22,3 +24,12 @@ packages/obsidian-plugin/types.js
 packages/obsidian-plugin/types.js.map
 packages/obsidian-plugin/types.d.ts
 packages/obsidian-plugin/temp/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+.venv/
+runtime/
+!packages/obsidian-plugin/src/runtime/
+!packages/obsidian-plugin/src/runtime/*.ts
+apps/gateway/config/gateway.env
+apps/gateway/config/gateway.local.json

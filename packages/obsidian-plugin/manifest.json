@@ -1,9 +1,9 @@
 {
   "id": "obsidian-agent-kb",
   "name": "Obsidian Agent KB",
-  "version": "0.3.1",
+  "version": "0.6.0",
   "minAppVersion": "1.5.0",
-  "description": "审阅、治理、晋升和审计 AI Agent 知识。",
+  "description": "一个插件即可让 AI Agent 读取、写入并共同治理 Obsidian 知识库。",
   "author": "Obsidian Agent KB Contributors",
   "isDesktopOnly": true
 }

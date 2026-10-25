@@ -6,6 +6,9 @@ on:
     tags: ['v*']
   pull_request:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -17,11 +20,23 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @oakb/obsidian-plugin build
+      - run: pnpm --filter @oakb/obsidian-plugin typecheck
+      - run: pnpm --filter @oakb/obsidian-plugin test
+      - run: scripts/fetch-obsidian-service-runtime.sh
+      - run: scripts/package-obsidian-plugin.sh
       - uses: actions/upload-artifact@v4
         with:
           name: obsidian-agent-kb
-          path: |
-            packages/obsidian-plugin/manifest.json
-            packages/obsidian-plugin/main.js
-            packages/obsidian-plugin/styles.css
+          path: dist/obsidian-agent-kb-*.zip
+      - name: Publish customer ZIP
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          PACKAGE="$(ls dist/obsidian-agent-kb-*.zip)"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$PACKAGE" --clobber
+          else
+            gh release create "$TAG" "$PACKAGE" --generate-notes
+          fi

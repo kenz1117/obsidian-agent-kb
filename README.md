@@ -1,78 +1,85 @@
 # Obsidian Agent KB
 
-**A local-first knowledge operating system for AI agents, powered by Obsidian-compatible Markdown.**
+**语言：** 中文 ｜ [English](README.en.md)
 
-Obsidian Agent KB gives every AI agent a shared, auditable, long-term memory layer.  
-It is not another vector database. It is a governed Markdown-native knowledge system.
+**一个 Obsidian 插件，让其他 AI Agent 共享你的本地知识库。**
 
-## Why
+知识仍是你自己的 Markdown 文件。Agent 可以搜索、读取和提交知识；你只需在 Obsidian 中审核，决定是否成为正式知识。
 
-AI agents forget. Chat history is scattered. Notes become digital garbage.
+## 你只需要安装一个插件
 
-Obsidian Agent KB solves this with:
+不需要安装 Python、Node、独立 MCP 服务器或 CLI，也不需要手动配置仓库路径。当前安装包内置 macOS Apple Silicon 后台运行环境。
 
-- **Agent-native access** through MCP, CLI, and connectors
-- **Obsidian-compatible Markdown**
-- **Automatic ingestion and distillation**
-- **Human review before canonicalization**
-- **Data governance by design**
-- **Git-versioned memory**
-- **Local-first storage**
+### 安装
 
-## Core value
+1. 从 GitHub Release 下载 `obsidian-agent-kb-<版本>.zip`。
+2. 将 ZIP 解压到当前 Vault 的 `.obsidian/plugins/` 目录。
+3. 确认存在 `.obsidian/plugins/obsidian-agent-kb/main.js`。
+4. 在 Obsidian「设置 → 第三方插件」中启用 **Obsidian Agent KB**。
+
+首次启用会自动初始化知识目录、Agent 指令和后台服务，已有笔记不会被覆盖。
+
+### 接入 Agent
+
+1. 打开「设置 → Obsidian Agent KB」，也可以点击「知识审阅」面板顶部的设置齿轮。
+2. 确认「后台服务运行中」。
+3. 点击「一键接入 Agent」。插件只处理实际检测到的 Agent，并在修改配置前备份。
+4. 重启对应 Agent。旧版独立 MCP 用户也只需更新这次地址，之后无需重复接入。
+
+不支持配置文件自动接入的 Agent 会明确显示「请在应用内接入」。其他支持 MCP Streamable HTTP 的客户端，可点击「复制 Agent 接入地址」，将地址作为 MCP URL 添加。「地址已配置」不等于已真实连接，真实连接以连接记录为准。
+
+**后台服务随系统登录自动运行，关闭 Obsidian 不影响 Agent 使用；在插件设置中关闭服务才会停止。**
+
+## 日常使用
 
 ```text
-Fragmented agent messages
-  → governed intake
-  → purified knowledge
-  → reviewable memory
-  → precise agent context
+Agent 搜索和读取 Vault
+        ↓
+Agent 提交候选知识
+        ↓
+Obsidian「知识审阅」队列
+        ↓
+人工晋升正式知识或归档
 ```
 
-## Architecture
+- `03-knowledge/auto/`：Agent 提交的候选知识。
+- `03-knowledge/reviewed/`：等待最终确认的笔记。
+- `03-knowledge/canonical/`：人工批准的正式知识。
+- `90-archive/governance/manual/`：手动归档内容。
 
-```mermaid
-flowchart LR
-  A[AI Agents] --> B[Knowledge Gateway]
-  B --> C[Governance Engine]
-  C --> D[Obsidian-compatible Vault]
-  D --> E[Obsidian UI]
-  C --> F[Review Queue]
-  F -->|approve| D
-```
+## 内置能力
 
-## Obsidian plugin
+- 八个 MCP 工具：上下文、搜索、读取、状态、消息、候选知识、会话和更新提案。
+- Agent 只能创建候选内容或提案，不能直接修改正式知识。
+- 敏感信息写入拦截、Vault 路径边界、本机访问令牌和本地审计。
+- 中文／英文评审界面、治理评分、晋升和归档。
 
-Build and install locally:
+详见 [Agent 接入指南](docs/agent-onboarding.md) 和 [MCP 工具](docs/mcp-tools.md)。
+
+## 发布与开发
+
+维护者生成同一个客户安装包：
 
 ```bash
-pnpm install
-pnpm build
-scripts/install-obsidian-plugin.sh /absolute/path/to/vault
+pnpm install --frozen-lockfile
+scripts/fetch-obsidian-service-runtime.sh
+scripts/package-obsidian-plugin.sh
 ```
 
-For release installs, download the `obsidian-agent-kb` CI/release artifact and copy `manifest.json`, `main.js`, and `styles.css` into:
+运行环境脚本从 Node.js 官方下载固定版本并强制核验 SHA-256；大型二进制不提交到仓库。产物位于 `dist/obsidian-agent-kb-<版本>.zip`。推送 `v*` 标签时，CI 会测试、下载运行环境、打包并上传到 GitHub Release。
 
-```text
-<vault>/.obsidian/plugins/obsidian-agent-kb/
+仓库中的独立 Python Gateway、TypeScript MCP 和 CLI 仅保留给需要无 Obsidian 部署的高级场景，不是普通客户的安装步骤。
+
+完整验证：
+
+```bash
+pnpm check
 ```
 
-The plugin provides a governed Knowledge Review queue, promotion, archive, settings, and provenance metadata.
+## 当前状态
 
-## Packages
+`0.6.x`——单一插件安装、自动初始化、后台常驻 MCP、一键 Agent 接入和人工评审均可用。
 
-| Package | Purpose |
-|---|---|
-| `@oakb/core` | Vault model, frontmatter parser, governance engine, lifecycle rules |
-| `@oakb/mcp` | MCP server for AI agents |
-| `@oakb/cli` | Local CLI for humans and fallback agents |
-| `@oakb/obsidian-plugin` | Human review dashboard and promotion UI |
-| `connectors` | Examples and adapters for agent platforms |
+## 许可证
 
-## Status
-
-`0.1.0-alpha` — architecture and governance model under active development.
-
-## License
-
-Apache-2.0.
+Apache-2.0。
