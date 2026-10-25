@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { evaluateIntake } from './governance.ts';
+import { evaluateIntake } from './governance.js';
 import type { GovernanceObject, GovernancePolicy } from './types.ts';
 
 const policy: GovernancePolicy = {

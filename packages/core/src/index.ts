@@ -1,2 +1,3 @@
-export * from './types.ts';
-export * from './governance.ts';
+export * from './types.js';
+export * from './governance.js';
+export * from "./vault-validator.js";

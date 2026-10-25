@@ -5,7 +5,7 @@ import type {
   GovernancePolicy,
   IntakeDecision,
   Provenance
-} from './types.ts';
+} from './types.js';
 
 export interface GovernanceResult {
   decision: IntakeDecision;
@@ -141,7 +141,7 @@ export function evaluateIntake(
     violations.push(`sensitivity rejected: ${obj.metadata.sensitivity}`);
   }
 
-  if (detectSecrets(serialized)) violations.push('potential secret detected');
+  if (detectSecrets(`${obj.body}\n${JSON.stringify(obj.metadata)}`)) violations.push('potential secret detected');
 
   const scored = scoreGovernanceObject(obj, existingContentHashes);
   reasons.push(...scored.reasons);
