@@ -187,8 +187,53 @@ export function filterCards<T extends GovernedCard>(cards: T[], filter: CardFilt
   });
 }
 
-export function duplicateGroups(cards: GovernedCard[]): GovernedCard[][] {
-  const exact = new Map<string, GovernedCard[]>();
+/** 分组标题：把长路径压成「目录/文件」，让人一眼认出这批卡来自哪份材料。 */
+function groupLabel(source: string): string {
+  const value = (source || '').trim();
+  if (!value || value === 'unknown') return 'unknown';
+  // URI 形态（agent://xxx、https://xxx）按原样显示，拆路径会把它拆坏。
+  if (value.includes('://')) return value;
+  if (!value.includes('/')) return value;
+  const parts = value.split('/').filter(Boolean);
+  if (parts.length <= 1) return value;
+  return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`;
+}
+
+export interface SourceGroup<T extends GovernedCard = GovernedCard> {
+  label: string;
+  cards: T[];
+}
+
+/** 总览卡识别：同一来源下先看总览，再看原子卡。 */
+function isOverviewCard(card: GovernedCard): boolean {
+  const title = String(card.title || '');
+  const path = String(card.path || '');
+  return /总览|概览|导航|overview/i.test(title) || /overview/i.test(path);
+}
+
+/**
+ * 按来源分组。
+ * 几十张候选卡平铺时无法判断该先审哪一批；派生物按源文档成组出现，
+ * 同组共享同一份来源与同一套限定语，适合连着审。
+ * 组内总览卡排最前——先看总览确认整份材料的理解对不对，再逐张看原子卡。
+ */
+export function groupBySource<T extends GovernedCard>(cards: T[]): SourceGroup<T>[] {
+  const groups = new Map<string, T[]>();
+  for (const card of cards) {
+    const key = (card.source || '').trim() || 'unknown';
+    const bucket = groups.get(key);
+    if (bucket) bucket.push(card);
+    else groups.set(key, [card]);
+  }
+  return [...groups.entries()]
+    .map(([source, bucket]) => ({
+      label: groupLabel(source),
+      cards: [...bucket].sort((a, b) => Number(isOverviewCard(b)) - Number(isOverviewCard(a)))
+    }))
+    .sort((a, b) => b.cards.length - a.cards.length || a.label.localeCompare(b.label));
+}
+
+export function duplicateGroups(cards: GovernedCard[]): GovernedCard[][] {  const exact = new Map<string, GovernedCard[]>();
   for (const card of cards) {
     const body = String((card as any).bodyHash ?? '');
     const key = `${normalizeTitle(card.title)}|${body}`;

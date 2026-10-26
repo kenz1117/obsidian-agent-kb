@@ -459,6 +459,42 @@
   margin-top: var(--oakb-gap-2);
 }
 
+/* 按来源分组的分组头：几十张候选卡时，先看清「这批来自哪份材料」。 */
+:is(.oakb-review, .oakb-settings) .oakb-group {
+  display: flex;
+  align-items: baseline;
+  gap: var(--oakb-gap-2);
+  margin: var(--oakb-gap-4) 0 var(--oakb-gap-2);
+  padding-bottom: var(--oakb-gap-1);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-group:first-child {
+  margin-top: 0;
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-group__label {
+  color: var(--text-normal);
+  font-size: var(--font-ui-small, 13px);
+  font-weight: var(--font-semibold, 600);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-group__count {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller, 12px);
+  white-space: nowrap;
+}
+
+/* 责任人徽章：审核时最需要先看的一眼信息。 */
+:is(.oakb-review, .oakb-settings) .oakb-badge--owner {
+  background: color-mix(in srgb, var(--oakb-tint) 12%, transparent);
+  color: var(--text-normal);
+  font-weight: var(--font-semibold, 600);
+}
+
 :is(.oakb-review, .oakb-settings) .oakb-badge {
   display: inline-flex;
   align-items: center;

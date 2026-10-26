@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { duplicateGroups, extractScope, filterCards, governanceStats, hasJudgment, normalizeFolderPath, promotionBlockers, queueForCard, withRoot } from './domain.js';
+import { duplicateGroups, extractScope, filterCards, governanceStats, groupBySource, hasJudgment, normalizeFolderPath, promotionBlockers, queueForCard, withRoot } from './domain.js';
 import { DEFAULT_SETTINGS } from './types.js';
 
 const settings = DEFAULT_SETTINGS;
@@ -77,4 +77,35 @@ test('judgement detection separates knowledge from raw records', () => {
   assert.equal(hasJudgment('每个 Agent 必须使用自己的令牌，否则身份会串。'), true);
   assert.equal(hasJudgment('## 核心观点\n\n配置文件的路径是 /Users/ken/.codex/config.toml。'), false);
   assert.match(extractScope('## 适用范围\n\n仅适用于 0.6.0 之后。\n\n## 关键内容\n\n必须绑定令牌。'), /0\.6\.0/);
+});
+
+test('groups cards by source and orders groups by size', () => {
+  const cards = [
+    { ...card('03-knowledge/reviewed/a.md', 'A'), source: '06-sources/books/ai_future.md' },
+    { ...card('03-knowledge/reviewed/b.md', 'B'), source: '06-sources/books/ai_future.md' },
+    { ...card('03-knowledge/reviewed/c.md', 'C'), source: '06-sources/methods/anc.md' }
+  ];
+  const groups = groupBySource(cards);
+  assert.equal(groups.length, 2);
+  // 组多的排前面：先审完一批再换下一批。
+  assert.equal(groups[0].cards.length, 2);
+  assert.equal(groups[0].label, 'books/ai_future.md');
+  assert.equal(groups[1].label, 'methods/anc.md');
+});
+
+test('group label falls back to the raw source when there is no path', () => {
+  const groups = groupBySource([{ ...card('03-knowledge/reviewed/a.md', 'A'), source: 'agent://minimaxcode' }]);
+  assert.equal(groups[0].label, 'agent://minimaxcode');
+  assert.equal(groups[0].cards.length, 1);
+});
+
+test('the overview card leads its source group', () => {
+  const cards = [
+    { ...card('03-knowledge/reviewed/atomic-1.md', '原子卡一'), source: '06-sources/methods/anc.md' },
+    { ...card('03-knowledge/reviewed/anc-overview.md', 'ANC 架构方法论主题总览'), source: '06-sources/methods/anc.md' },
+    { ...card('03-knowledge/reviewed/atomic-2.md', '原子卡二'), source: '06-sources/methods/anc.md' }
+  ];
+  const group = groupBySource(cards)[0];
+  assert.equal(group.cards.length, 3);
+  assert.match(group.cards[0].title, /总览/);
 });

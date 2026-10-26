@@ -2,7 +2,7 @@ import { ItemView, Notice, WorkspaceLeaf, setIcon } from 'obsidian';
 import type { OakbPluginApi } from './plugin-api';
 import type { CardSummary, QueueName } from './types';
 import { t, tStatus, type MessageKey } from './i18n';
-import { duplicateGroups, filterCards, governanceStats, isStale, normalizeFolderPath, queueForCard } from './domain';
+import { duplicateGroups, filterCards, governanceStats, groupBySource, isStale, normalizeFolderPath, queueForCard } from './domain';
 import { ReasonModal } from './reason-modal';
 import { DecisionModal } from './decision-modal';
 
@@ -385,119 +385,133 @@ export class OakbReviewView extends ItemView {
       return;
     }
 
-    for (const card of cards) {
-      const item = list.createDiv({ cls: `oakb-card oakb-card--${this.queue}` });
-      if (this.selectedPath === card.path) item.addClass('is-selected');
+    // 按来源分组：几十张候选卡平铺时无法判断该先审哪一批。
+    const groups = groupBySource(cards);
+    for (const group of groups) {
+      if (groups.length > 1) {
+        const header = list.createDiv({ cls: 'oakb-group' });
+        header.createDiv({ cls: 'oakb-group__label', text: group.label });
+        header.createDiv({ cls: 'oakb-group__count', text: t('groupCards', { n: group.cards.length }) });
+      }
+      for (const card of group.cards) {
+          const item = list.createDiv({ cls: `oakb-card oakb-card--${this.queue}` });
+          if (this.selectedPath === card.path) item.addClass('is-selected');
 
-      const head = item.createDiv({ cls: 'oakb-card__head' });
-      const title = head.createEl('button', { cls: 'oakb-card__title', text: card.title });
-      title.setAttribute('title', card.title);
-      title.setAttribute('aria-expanded', String(this.selectedPath === card.path));
-      title.addEventListener('click', async () => {
-        this.selectedPath = this.selectedPath === card.path ? null : card.path;
-        await this.renderList();
-      });
+        const head = item.createDiv({ cls: 'oakb-card__head' });
+        const title = head.createEl('button', { cls: 'oakb-card__title', text: card.title });
+        title.setAttribute('title', card.title);
+        title.setAttribute('aria-expanded', String(this.selectedPath === card.path));
+        title.addEventListener('click', async () => {
+          this.selectedPath = this.selectedPath === card.path ? null : card.path;
+          await this.renderList();
+        });
 
-      const quick = head.createDiv({ cls: 'oakb-card__quick' });
-      const open = quick.createEl('button', {
-        cls: 'oakb-quick-button',
-        attr: { 'aria-label': t('open'), title: t('open') }
-      });
-      setIcon(open, 'file-text');
-      open.addEventListener('click', async () => await this.app.workspace.getLeaf('tab').openFile(card.file));
-
-      if (card.status !== 'review' && card.status !== 'canonical') {
-        const review = quick.createEl('button', {
+        const quick = head.createDiv({ cls: 'oakb-card__quick' });
+        const open = quick.createEl('button', {
           cls: 'oakb-quick-button',
-          attr: { 'aria-label': t('markReviewed'), title: t('markReviewed') }
+          attr: { 'aria-label': t('open'), title: t('open') }
         });
-        setIcon(review, 'check');
-        review.addEventListener('click', async () => {
-          try {
-            await this.plugin.markReviewed(card.file);
-            new Notice(t('reviewedNotice'));
-            await this.refresh();
-          } catch (error) {
-            new Notice(`${t('error')}: ${error instanceof Error ? error.message : String(error)}`);
-          }
-        });
-      }
+        setIcon(open, 'file-text');
+        open.addEventListener('click', async () => await this.app.workspace.getLeaf('tab').openFile(card.file));
 
-      if (card.status !== 'canonical') {
-        const promote = quick.createEl('button', {
-          cls: 'oakb-quick-button mod-cta',
-          attr: { 'aria-label': t('promote'), title: t('promote') }
-        });
-        setIcon(promote, 'shield-check');
-        promote.addEventListener('click', async () => {
-          try {
-            const promoted = await this.plugin.promoteCard(card.file, `${normalizeFolderPath(this.plugin.settings.knowledgeRoot)}/${normalizeFolderPath(this.plugin.settings.canonicalFolder)}`);
-            if (promoted) new Notice(t('promoteSuccess'));
-            await this.refresh();
-          } catch (error) {
-            new Notice(`${t('error')}: ${error instanceof Error ? error.message : String(error)}`);
-          }
-        });
-      }
+        if (card.status !== 'review' && card.status !== 'canonical') {
+          const review = quick.createEl('button', {
+            cls: 'oakb-quick-button',
+            attr: { 'aria-label': t('markReviewed'), title: t('markReviewed') }
+          });
+          setIcon(review, 'check');
+          review.addEventListener('click', async () => {
+            try {
+              await this.plugin.markReviewed(card.file);
+              new Notice(t('reviewedNotice'));
+              await this.refresh();
+            } catch (error) {
+              new Notice(`${t('error')}: ${error instanceof Error ? error.message : String(error)}`);
+            }
+          });
+        }
 
-      const archive = quick.createEl('button', {
-        cls: 'oakb-quick-button',
-        attr: { 'aria-label': t('archive'), title: t('archive') }
-      });
-      setIcon(archive, 'archive');
-      archive.addEventListener('click', () => {
-        new ReasonModal(this.app, t('archiveTitle'), async reason => {
-          await this.plugin.archiveCard(card.file, reason);
-          new Notice(t('archiveSuccess'));
-          await this.refresh();
-        }).open();
-      });
+        if (card.status !== 'canonical') {
+          const promote = quick.createEl('button', {
+            cls: 'oakb-quick-button mod-cta',
+            attr: { 'aria-label': t('promote'), title: t('promote') }
+          });
+          setIcon(promote, 'shield-check');
+          promote.addEventListener('click', async () => {
+            try {
+              const promoted = await this.plugin.promoteCard(card.file, `${normalizeFolderPath(this.plugin.settings.knowledgeRoot)}/${normalizeFolderPath(this.plugin.settings.canonicalFolder)}`);
+              if (promoted) new Notice(t('promoteSuccess'));
+              await this.refresh();
+            } catch (error) {
+              new Notice(`${t('error')}: ${error instanceof Error ? error.message : String(error)}`);
+            }
+          });
+        }
 
-      if (this.plugin.settings.autoDecisionEnabled) {
-        const decide = quick.createEl('button', {
+        const archive = quick.createEl('button', {
           cls: 'oakb-quick-button',
-          attr: { 'aria-label': t('decisionRun'), title: t('decisionRun') }
+          attr: { 'aria-label': t('archive'), title: t('archive') }
         });
-        setIcon(decide, 'sparkles');
-        decide.addEventListener('click', async () => await this.runSingleDecision(card));
-      }
+        setIcon(archive, 'archive');
+        archive.addEventListener('click', () => {
+          new ReasonModal(this.app, t('archiveTitle'), async reason => {
+            await this.plugin.archiveCard(card.file, reason);
+            new Notice(t('archiveSuccess'));
+            await this.refresh();
+          }).open();
+        });
 
-      const badges = item.createDiv({ cls: 'oakb-card__badges' });
-      badges.createSpan({ cls: 'oakb-badge oakb-badge--status', text: tStatus(card.status) });
-      if (card.confidence && card.confidence !== 'unknown') {
-        badges.createSpan({
-          cls: `oakb-badge oakb-badge--confidence-${card.confidence}`,
-          text: `${t('confidence')}: ${card.confidence}`
-        });
-      }
-      if (this.plugin.settings.showScores && card.score !== null) {
-        badges.createSpan({
-          cls: `oakb-badge oakb-badge--score${card.score < 80 ? ' is-low' : ''}`,
-          text: `${t('score')}: ${card.score}`
-        });
-      }
-      badges.createSpan({ cls: 'oakb-badge', text: `${t('updated')}: ${card.updated || t('none')}` });
-      if (isStale(card, this.plugin.settings.staleDays)) {
-        badges.createSpan({ cls: 'oakb-badge oakb-badge--warning', text: t('stale') });
-      }
-      if (card.duplicateOf) {
-        badges.createSpan({ cls: 'oakb-badge oakb-badge--danger', text: `${t('duplicateOf')}: ${card.duplicateOf}` });
-      }
-      if (card.governanceIssues.length) {
-        badges.createSpan({ cls: 'oakb-badge oakb-badge--danger', text: `${t('issues')}: ${card.governanceIssues.length}` });
-      }
+        if (this.plugin.settings.autoDecisionEnabled) {
+          const decide = quick.createEl('button', {
+            cls: 'oakb-quick-button',
+            attr: { 'aria-label': t('decisionRun'), title: t('decisionRun') }
+          });
+          setIcon(decide, 'sparkles');
+          decide.addEventListener('click', async () => await this.runSingleDecision(card));
+        }
 
-      if (this.selectedPath === card.path) {
-        const detail = item.createEl('dl', { cls: 'oakb-card__detail' });
-        const row = (label: string, value: string): void => {
-          detail.createEl('dt', { text: label });
-          detail.createEl('dd', { text: value });
-        };
-        row(t('path'), card.path);
-        row(t('sourceLabel'), card.source || t('none'));
-        row(t('tags'), card.tags.length ? card.tags.join(', ') : t('none'));
-        row(t('status'), card.status);
-        if (card.governanceIssues.length) row(t('issues'), card.governanceIssues.join('; '));
+        const badges = item.createDiv({ cls: 'oakb-card__badges' });
+        badges.createSpan({ cls: 'oakb-badge oakb-badge--status', text: tStatus(card.status) });
+        if (card.confidence && card.confidence !== 'unknown') {
+          badges.createSpan({
+            cls: `oakb-badge oakb-badge--confidence-${card.confidence}`,
+            text: `${t('confidence')}: ${card.confidence}`
+          });
+        }
+        if (this.plugin.settings.showScores && card.score !== null) {
+          badges.createSpan({
+            cls: `oakb-badge oakb-badge--score${card.score < 80 ? ' is-low' : ''}`,
+            text: `${t('score')}: ${card.score}`
+          });
+        }
+        badges.createSpan({ cls: 'oakb-badge', text: `${t('updated')}: ${card.updated || t('none')}` });
+        if (card.owner) {
+          badges.createSpan({ cls: 'oakb-badge oakb-badge--owner', text: `${t('owner')}: ${card.owner}` });
+        }
+        if (isStale(card, this.plugin.settings.staleDays)) {
+          badges.createSpan({ cls: 'oakb-badge oakb-badge--warning', text: t('stale') });
+        }
+        if (card.duplicateOf) {
+          badges.createSpan({ cls: 'oakb-badge oakb-badge--danger', text: `${t('duplicateOf')}: ${card.duplicateOf}` });
+        }
+        if (card.governanceIssues.length) {
+          badges.createSpan({ cls: 'oakb-badge oakb-badge--danger', text: `${t('issues')}: ${card.governanceIssues.length}` });
+        }
+
+        if (this.selectedPath === card.path) {
+          const detail = item.createEl('dl', { cls: 'oakb-card__detail' });
+          const row = (label: string, value: string): void => {
+            detail.createEl('dt', { text: label });
+            detail.createEl('dd', { text: value });
+          };
+          row(t('path'), card.path);
+          row(t('sourceLabel'), card.source || t('none'));
+          row(t('owner'), card.owner || t('none'));
+          row(t('scope'), card.scope || t('none'));
+          row(t('tags'), card.tags.length ? card.tags.join(', ') : t('none'));
+          row(t('status'), card.status);
+          if (card.governanceIssues.length) row(t('issues'), card.governanceIssues.join('; '));
+        }
       }
     }
   }

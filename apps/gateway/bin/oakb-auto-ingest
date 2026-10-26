@@ -19,7 +19,21 @@ mkdir "$LOCK" 2>/dev/null || exit 0
 files=("${(@f)$({
   find "$VAULT/01-inbox/human" -maxdepth 1 -type f -name '*.md' ! -name '.*'
   find "$VAULT/01-inbox" -type f -path '*/messages/*.md' -name '*.md'
+  # 源文档蒸馏：06-sources/ 下仍为 seed 且尚未标记 distilled_at 的文档。
+  # 源文档是「有来源、有 Owner、可复用、有判断」的一手材料，但它本身不是知识卡，
+  # 必须再经一次提炼才能进入知识层——此前这条链路是断的，管线从不扫描 06-sources/。
+  find "$VAULT/06-sources" -type f -name '*.md' ! -name '.*' | while read -r f; do
+    if grep -q '^status: seed' "$f" 2>/dev/null && ! grep -q '^distilled_at:' "$f" 2>/dev/null; then
+      echo "$f"
+    fi
+  done
 } | sort -u)}")
+
+# 补跑/调试用：OAKB_INGEST_ONLY=anc 只处理路径包含该子串的文件。
+# 日常整点调度不设这个变量，行为不变。
+if [[ -n "${OAKB_INGEST_ONLY:-}" ]]; then
+  files=("${(@f)$(printf '%s\n' "${files[@]}" | grep -F "$OAKB_INGEST_ONLY" || true)}")
+fi
 
 if [[ ${#files[@]} -eq 0 ]]; then
   echo "$(date '+%F %T') no pending files" >> "$LOG_DIR/auto-ingest.log"
@@ -53,6 +67,57 @@ for file in "${files[@]}"; do
 10. 只处理这个文件，不要修改 03-knowledge/auto 以外的正式知识；不要修改 .git、.obsidian、AGENTS.md、00-contract。
 11. 不允许写入任何 API Key、Token、密码、私钥、数据库连接串或未脱敏个人信息。
 12. 完成后只输出一行 JSON：{\"source\":\"移动后的相对路径\",\"cards\":[\"每张知识卡相对路径\"]}"
+  elif [[ "$rel" == 06-sources/* ]]; then
+    kind="source extraction"
+    prompt="从知识库源文档提炼原子知识卡片：$rel
+
+这份文档是一手材料（type: source, status: seed），还不是知识卡。请按以下步骤执行：
+
+1. 完整读取这个文件（可能很长，分段读完，不要只看开头）。
+2. 提炼 5 到 10 张原子知识卡片，外加 1 张主题总览卡，写入 03-knowledge/auto/。
+   - 原子卡：每张只讲一个可复用的概念、方法、事实或决策，能独立复用、独立成立。
+   - 主题总览卡：一张导航卡，说明这份文档讲的是什么、有哪几块、哪些块适合在什么场景引用。
+3. 严格遵守「只做重组，不做增补」：
+   - 允许重排、合并同义句、抽取显式陈述、改写表述。
+   - 禁止引入原文没有的断言、背景、因果推断或数字。
+   - 原文里的限定语（多数情况下、某些场景、暂不适用、待验证）必须原样保留，不得强化或弱化。
+4. 每张卡的「关键内容」里，每一条实质性断言后面必须紧跟一段原文引用，格式：
+   （源：<源文件名>「<原文片段>」）
+   其中「<原文片段>」必须是该文档中逐字存在的连续片段（20 到 120 字为宜），不能改写、不能拼接。
+   这是硬性要求，会被程序逐条校验；引文命不中的卡片会被驳回。
+5. 每张卡的 YAML frontmatter 必须包含以下字段：
+   id: kb-$(date '+%Y%m%d')-<英文短横线 slug>
+   type: knowledge
+   title: <中文标题>
+   status: auto
+   confidence: medium
+   source: $rel
+   source_type: <源文档 frontmatter 里的 source_type>
+   created: $(date '+%Y-%m-%d')
+   updated: $(date '+%Y-%m-%d')
+   owner: KenZ
+   scope: <这张判断在什么场景下适用，1 句>
+   valid_from: $(date '+%Y-%m-%d')
+   state: active
+   channel: knowledge
+   origin: distillation
+   distill_method: extraction
+   source_ref: $rel
+   tags: <2 到 5 个主题标签>
+   confidence 不要写 high：文档内容未经人工确认。
+6. 每张卡的正文必须包含四个小节：核心观点、适用范围、关键内容、来源、待确认。
+   - 核心观点：一句话判断，不要只复述事实。
+   - 适用范围：明确这张判断在什么场景成立、什么场景不成立。
+   - 关键内容：分条列出，每条带原文引用。
+   - 来源：写出源文档相对路径、源文档里对应的小节标题，以及原文片段。
+   - 待确认：原文里含糊、未量化、依赖前提、或作者自己标注为待验证的地方；没有就写「无」。
+7. 提炼完成后，更新源文档 $rel 的 frontmatter，追加两个字段（只改 frontmatter，不要改正文）：
+   distilled_at: $(date '+%Y-%m-%d')
+   distilled_cards: <实际产出的卡片数>
+   这两个字段用于防重复提炼，不能省略。
+8. 不要修改 03-knowledge/auto/ 以外的任何目录；不要修改 .git、.obsidian、AGENTS.md、00-contract、07-maps。
+9. 不允许写入任何 API Key、Token、密码、私钥、数据库连接串或未脱敏个人信息。
+10. 完成后只输出一行 JSON：{\"source\":\"$rel\",\"cards\":[\"每张知识卡相对路径\"]}"
   else
     kind="agent message"
     prompt="处理知识库 Agent 消息：$rel
@@ -88,6 +153,12 @@ done
 "$ROOT/bin/oakb-automate" inbox-triage >> "$LOG_DIR/auto-ingest.log" 2>&1 || true
 
 cd "$VAULT"
+# OAKB_INGEST_NO_COMMIT=1 时只做提炼，不提交不推送。用于先人工验收产物再放行。
+if [[ "${OAKB_INGEST_NO_COMMIT:-}" == "1" ]]; then
+  echo "$(date '+%F %T') no-commit mode: skipped git commit" >> "$LOG_DIR/auto-ingest.log"
+  echo "$(date '+%F %T') processed $count files (uncommitted)" >> "$LOG_DIR/auto-ingest.log"
+  exit 0
+fi
 if ! git diff --quiet || ! git diff --cached --quiet; then
   git add -A
   if "$ROOT/bin/oakb-secret-scan" "$VAULT" >> "$LOG_DIR/auto-ingest.log" 2>&1; then
