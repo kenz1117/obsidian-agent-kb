@@ -12,9 +12,24 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 _default_config = ROOT / "config" / "gateway.json"
 _local_config = ROOT / "config" / "gateway.local.json"
-CONFIG_PATH = Path(os.environ.get("KB_CONFIG_PATH", _local_config if _local_config.exists() else _default_config))
+CONFIG_PATH = Path(os.environ.get("KB_CONFIG_PATH", _local_config if _local_config.exists() else _default_config)).expanduser().resolve()
 CONFIG = json.loads(CONFIG_PATH.read_text("utf-8")) if CONFIG_PATH.exists() else {}
-VAULT = Path(os.environ.get("KB_VAULT_ROOT", CONFIG.get("vault_root", "."))).expanduser().resolve()
+
+
+def configured_path(environment_key: str, config_key: str, default: Path) -> Path:
+    """Resolve config-relative paths explicitly instead of depending on the caller's CWD."""
+    raw = os.environ.get(environment_key) or CONFIG.get(config_key)
+    if not raw:
+        return default.resolve()
+    path = Path(str(raw)).expanduser()
+    if not path.is_absolute() and environment_key not in os.environ:
+        path = CONFIG_PATH.parent / path
+    return path.resolve()
+
+
+VAULT = configured_path("KB_VAULT_ROOT", "vault_root", ROOT / "vault")
+RUNTIME = configured_path("KB_RUNTIME_DIR", "runtime_root", ROOT / "runtime")
+LIMITS = CONFIG.get("limits", {}) if isinstance(CONFIG.get("limits", {}), dict) else {}
 AGENT_ID = os.environ.get("KB_AGENT_ID", "").strip().lower()
 _config_agents = os.environ.get("KB_AGENT_IDS", "").split(",") if os.environ.get("KB_AGENT_IDS") else CONFIG.get("agents", [])
 REGISTERED_IDS = {str(item).strip().lower() for item in _config_agents if str(item).strip()}
@@ -71,17 +86,66 @@ def slugify(value: str, max_len: int = 64) -> str:
     return value or "note"
 
 
+def bounded_int(args: dict[str, Any], key: str, default: int, minimum: int, maximum: int) -> int:
+    value = args.get(key, default)
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise JsonRpcError(-32602, f"{key} must be an integer")
+    if not minimum <= value <= maximum:
+        raise JsonRpcError(-32602, f"{key} must be between {minimum} and {maximum}")
+    return value
+
+
+def required_text(args: dict[str, Any], key: str, *, max_length: int = 262144) -> str:
+    value = args.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise JsonRpcError(-32602, f"{key} is required")
+    if len(value) > max_length:
+        raise JsonRpcError(-32602, f"{key} exceeds {max_length} characters")
+    return value.strip()
+
+
+def optional_text(args: dict[str, Any], key: str, default: str = "", *, max_length: int = 262144) -> str:
+    value = args.get(key, default)
+    if not isinstance(value, str):
+        raise JsonRpcError(-32602, f"{key} must be a string")
+    if len(value) > max_length:
+        raise JsonRpcError(-32602, f"{key} exceeds {max_length} characters")
+    return value.strip()
+
+
+def normalized_tags(value: Any, defaults: list[str]) -> list[str]:
+    if value is None:
+        return defaults
+    if not isinstance(value, list) or len(value) > 20:
+        raise JsonRpcError(-32602, "tags must be a list containing at most 20 strings")
+    tags: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not item.strip() or len(item.strip()) > 64:
+            raise JsonRpcError(-32602, "each tag must contain 1 to 64 characters")
+        if any(ord(char) < 32 for char in item):
+            raise JsonRpcError(-32602, "tags cannot contain control characters")
+        tags.append(item.strip())
+    return tags or defaults
+
+
 def require_agent() -> str:
     if not AGENT_ID:
         raise JsonRpcError(-32000, "KB_AGENT_ID is required")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", AGENT_ID):
+        raise JsonRpcError(-32000, "KB_AGENT_ID contains unsupported characters")
     if AGENT_ID not in REGISTERED_IDS:
         raise JsonRpcError(-32000, f"unregistered agent_id: {AGENT_ID}")
     return AGENT_ID
 
 
+def validate_vault() -> None:
+    if not VAULT.is_dir():
+        raise JsonRpcError(-32005, f"vault directory does not exist: {VAULT}")
+
+
 def audit(tool: str, target: str, result: str, error: str | None = None, bytes_written: int | None = None) -> None:
     y, m, d, *_ = now_parts()
-    audit_dir = ROOT / "runtime" / "audit" / y / m
+    audit_dir = RUNTIME / "audit" / y / m
     audit_dir.mkdir(parents=True, exist_ok=True)
     record: dict[str, Any] = {
         "timestamp": utc_now(),
@@ -99,7 +163,7 @@ def audit(tool: str, target: str, result: str, error: str | None = None, bytes_w
         fh.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
 
 
-def safe_vault_path(raw: str, *, must_exist: bool = True, md_only: bool = False) -> Path:
+def safe_vault_path(raw: Any, *, must_exist: bool = True, md_only: bool = False) -> Path:
     if not isinstance(raw, str) or not raw.strip():
         raise JsonRpcError(-32602, "path is required")
     p = Path(raw.strip())
@@ -129,24 +193,25 @@ def detect_secret(text: str) -> str | None:
 
 
 def ensure_frontmatter_value(value: str) -> str:
-    value = value.replace("\\", "\\\\").replace('"', '\\"')
-    return f'"{value}"'
+    return json.dumps(value, ensure_ascii=False)
 
 
 def write_audit_and_file(tool: str, target: Path, content: str) -> dict[str, Any]:
+    relative = target.relative_to(VAULT).as_posix()
+    data = content.encode("utf-8")
+    max_write_bytes = int(LIMITS.get("max_write_bytes", 262144))
+    if len(data) > max_write_bytes:
+        raise JsonRpcError(-32602, f"content exceeds {max_write_bytes} bytes")
+
     error = detect_secret(content)
     if error:
-        audit(tool, target.relative_to(VAULT).as_posix(), "rejected_secret", error)
+        audit(tool, relative, "rejected_secret", error)
         raise JsonRpcError(-32003, "write rejected: potential secret detected", error)
 
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
-        audit(tool, target.relative_to(VAULT).as_posix(), "rejected_exists")
-        raise JsonRpcError(-32004, f"file already exists: {target.relative_to(VAULT).as_posix()}")
-
-    data = content.encode("utf-8")
-    if len(data) > 262144:
-        raise JsonRpcError(-32602, "content exceeds 256KB")
+        audit(tool, relative, "rejected_exists")
+        raise JsonRpcError(-32004, f"file already exists: {relative}")
 
     tmp = target.with_suffix(target.suffix + f".tmp-{os.getpid()}")
     try:
@@ -189,25 +254,28 @@ def tool_get_context(_: dict[str, Any]) -> dict[str, Any]:
 
 def tool_search(args: dict[str, Any]) -> dict[str, Any]:
     require_agent()
-    query = args.get("query")
-    if not isinstance(query, str) or not query.strip():
-        raise JsonRpcError(-32602, "query is required")
-    query = query.strip()
-    flags = re.IGNORECASE if args.get("case_sensitive") is not True else 0
-    pattern = re.compile(re.escape(query) if args.get("regex") is not True else query, flags)
-    limit = min(max(int(args.get("limit", 20)), 1), 50)
+    query = required_text(args, "query", max_length=1000)
+    case_sensitive = args.get("case_sensitive", False)
+    if not isinstance(case_sensitive, bool):
+        raise JsonRpcError(-32602, "case_sensitive must be a boolean")
+    limit = bounded_int(args, "limit", 20, 1, int(LIMITS.get("max_search_results", 50)))
+    needle = query if case_sensitive else query.casefold()
     results: list[dict[str, Any]] = []
-    for path in VAULT.rglob("*.md"):
-        rel = path.relative_to(VAULT)
+    for candidate in VAULT.rglob("*.md"):
+        rel = candidate.relative_to(VAULT)
         if any(part in PROTECTED_PARTS for part in rel.parts):
             continue
         try:
+            path = safe_vault_path(rel.as_posix(), must_exist=True, md_only=True)
+            if path.stat().st_size > 1048576:
+                continue
             text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeError):
+        except (JsonRpcError, OSError, UnicodeError):
             continue
         matches = []
         for i, line in enumerate(text.splitlines(), 1):
-            if pattern.search(line):
+            haystack = line if case_sensitive else line.casefold()
+            if needle in haystack:
                 matches.append({"line": i, "text": line.strip()[:300]})
                 if len(matches) >= 5:
                     break
@@ -221,7 +289,13 @@ def tool_search(args: dict[str, Any]) -> dict[str, Any]:
 def tool_read_note(args: dict[str, Any]) -> dict[str, Any]:
     require_agent()
     path = safe_vault_path(args.get("path"), must_exist=True, md_only=True)
-    max_bytes = min(max(int(args.get("max_bytes", 65536)), 1), 262144)
+    max_bytes = bounded_int(
+        args,
+        "max_bytes",
+        int(LIMITS.get("default_read_bytes", 65536)),
+        1,
+        int(LIMITS.get("max_read_bytes", 262144)),
+    )
     data = path.read_bytes()
     truncated = len(data) > max_bytes
     if truncated:
@@ -251,164 +325,153 @@ def tool_get_status(_: dict[str, Any]) -> dict[str, Any]:
 
 def tool_create_inbox_card(args: dict[str, Any]) -> dict[str, Any]:
     agent = require_agent()
-    title = args.get("title")
-    content = args.get("content")
-    if not isinstance(title, str) or not title.strip():
-        raise JsonRpcError(-32602, "title is required")
-    if not isinstance(content, str) or not content.strip():
-        raise JsonRpcError(-32602, "content is required")
+    title = required_text(args, "title", max_length=500)
+    content = required_text(args, "content", max_length=250000)
     _, _, _, date, compact, hhmm = now_parts()
-    slug = slugify(args.get("slug") or title)
+    slug = slugify(optional_text(args, "slug", max_length=128) or title)
     path = VAULT / "01-inbox" / agent / f"{date}-{slug}.md"
-    tags = args.get("tags") or ["inbox", "agent"]
-    if not isinstance(tags, list) or not all(isinstance(x, str) for x in tags):
-        raise JsonRpcError(-32602, "tags must be a list of strings")
-    tags = tags or ["inbox", "agent"]
-    tag_lines = "\n".join(f"  - {t}" for t in tags)
+    tags = normalized_tags(args.get("tags"), ["inbox", "agent"])
+    tag_lines = "\n".join(f"  - {ensure_frontmatter_value(tag)}" for tag in tags)
     confidence = args.get("confidence", "medium")
     if confidence not in {"low", "medium", "high"}:
         raise JsonRpcError(-32602, "confidence must be low, medium, or high")
     text = f"""---
 id: kb-{compact}-{hhmm}-{slug}
 type: knowledge
-title: {ensure_frontmatter_value(title.strip())}
-status: seed
+title: {ensure_frontmatter_value(title)}
+status: pending
 confidence: {confidence}
 agent: {agent}
+origin: agent
+source: agent://{agent}
+sensitivity: internal
 created: {date}
 updated: {date}
 tags:
 {tag_lines}
 ---
 
-# {title.strip()}
+# {title}
 
-{content.strip()}
+{content}
 """
     return write_audit_and_file("kb.create_inbox_card", path, text)
 
 
 def tool_create_session_note(args: dict[str, Any]) -> dict[str, Any]:
     agent = require_agent()
-    title = args.get("title")
-    content = args.get("content")
-    if not isinstance(title, str) or not title.strip():
-        raise JsonRpcError(-32602, "title is required")
-    if not isinstance(content, str) or not content.strip():
-        raise JsonRpcError(-32602, "content is required")
+    title = required_text(args, "title", max_length=500)
+    content = required_text(args, "content", max_length=250000)
     y, m, d, date, compact, hhmm = now_parts()
-    slug = slugify(args.get("slug") or title)
+    slug = slugify(optional_text(args, "slug", max_length=128) or title)
     path = VAULT / "02-sessions" / y / m / d / f"{date}-{hhmm}-{agent}-{slug}.md"
     result = args.get("result", "completed")
     if result not in {"completed", "partial", "failed"}:
         raise JsonRpcError(-32602, "result must be completed, partial, or failed")
-    tags = args.get("tags") or ["session", "agent"]
-    tag_lines = "\n".join(f"  - {t}" for t in tags)
+    tags = normalized_tags(args.get("tags"), ["session", "agent"])
+    tag_lines = "\n".join(f"  - {ensure_frontmatter_value(tag)}" for tag in tags)
     text = f"""---
 id: session-{compact}-{hhmm}-{agent}-{slug}
 type: session
 agent: {agent}
+origin: agent
+source: agent://{agent}
+sensitivity: internal
 date: {date}
-title: {ensure_frontmatter_value(title.strip())}
+title: {ensure_frontmatter_value(title)}
 result: {result}
 tags:
 {tag_lines}
 ---
 
-# {title.strip()}
+# {title}
 
-{content.strip()}
+{content}
 """
     return write_audit_and_file("kb.create_session_note", path, text)
 
 
 def tool_create_message(args: dict[str, Any]) -> dict[str, Any]:
     agent = require_agent()
-    content = args.get("content")
-    if not isinstance(content, str) or not content.strip():
-        raise JsonRpcError(-32602, "content is required")
-    title = args.get("title") or "Agent message"
-    if not isinstance(title, str) or not title.strip():
-        raise JsonRpcError(-32602, "title must be a string")
+    content = required_text(args, "content", max_length=250000)
+    title = optional_text(args, "title", "Agent message", max_length=500) or "Agent message"
     _, _, _, date, compact, hhmm = now_parts()
-    slug = slugify(args.get("slug") or title)
+    slug = slugify(optional_text(args, "slug", max_length=128) or title)
     path = VAULT / "01-inbox" / agent / "messages" / f"{date}-{hhmm}-{slug}.md"
-    tags = args.get("tags") or ["agent-message", agent]
-    if not isinstance(tags, list) or not all(isinstance(x, str) for x in tags):
-        raise JsonRpcError(-32602, "tags must be a list of strings")
-    tag_lines = "\n".join(f"  - {t}" for t in tags)
+    tags = normalized_tags(args.get("tags"), ["agent-message", agent])
+    tag_lines = "\n".join(f"  - {ensure_frontmatter_value(tag)}" for tag in tags)
     text = f"""---
 id: message-{compact}-{hhmm}-{agent}-{slug}
 type: message
 agent: {agent}
+origin: agent
+source: agent://{agent}
+sensitivity: internal
 date: {date}
-title: {ensure_frontmatter_value(title.strip())}
+title: {ensure_frontmatter_value(title)}
 status: pending
 tags:
 {tag_lines}
 ---
 
-# {title.strip()}
+# {title}
 
-{content.strip()}
+{content}
 """
     return write_audit_and_file("kb.create_message", path, text)
 
 
 def tool_propose_update(args: dict[str, Any]) -> dict[str, Any]:
     agent = require_agent()
-    target_raw = args.get("target_path")
-    reason = args.get("reason")
-    proposed_content = args.get("proposed_content")
-    if not isinstance(target_raw, str) or not target_raw.strip():
-        raise JsonRpcError(-32602, "target_path is required")
-    if not isinstance(reason, str) or not reason.strip():
-        raise JsonRpcError(-32602, "reason is required")
-    if not isinstance(proposed_content, str) or not proposed_content.strip():
-        raise JsonRpcError(-32602, "proposed_content is required")
+    target_raw = required_text(args, "target_path", max_length=4096)
+    reason = required_text(args, "reason", max_length=50000)
+    proposed_content = required_text(args, "proposed_content", max_length=250000)
     target = safe_vault_path(target_raw, must_exist=True, md_only=True)
     target_rel = target.relative_to(VAULT).as_posix()
     if target_rel.startswith(("01-inbox/", "02-sessions/")):
         raise JsonRpcError(-32602, "proposal target must be outside inbox and sessions")
 
     _, _, _, date, compact, hhmm = now_parts()
-    slug = slugify(args.get("slug") or target.stem)
+    slug = slugify(optional_text(args, "slug", max_length=128) or target.stem)
     path = VAULT / "01-inbox" / agent / "proposals" / f"{date}-{slug}.proposal.md"
-    evidence = args.get("evidence", "待补充")
-    impact = args.get("impact", "待补充")
-    rollback = args.get("rollback_note", "Git revert proposed content after review.")
+    evidence = optional_text(args, "evidence", "待补充", max_length=50000) or "待补充"
+    impact = optional_text(args, "impact", "待补充", max_length=50000) or "待补充"
+    rollback = optional_text(args, "rollback_note", "Git revert proposed content after review.", max_length=50000)
     text = f"""---
 id: proposal-{compact}-{hhmm}-{agent}-{slug}
 type: proposal
 agent: {agent}
+origin: agent
+source: agent://{agent}
+sensitivity: internal
 date: {date}
 status: open
-target_path: "{target_rel}"
+target_path: {ensure_frontmatter_value(target_rel)}
 ---
 
 # Proposal: {target_rel}
 
 ## Reason
 
-{reason.strip()}
+{reason}
 
 ## Evidence
 
-{evidence.strip()}
+{evidence}
 
 ## Impact
 
-{impact.strip()}
+{impact}
 
 ## Proposed Content
 
 ```markdown
-{proposed_content.strip()}
+{proposed_content}
 ```
 
 ## Rollback
 
-{rollback.strip()}
+{rollback}
 """
     return write_audit_and_file("kb.propose_update", path, text)
 
@@ -421,14 +484,13 @@ TOOLS: list[dict[str, Any]] = [
     },
     {
         "name": "kb_search",
-        "description": "Search Markdown notes inside the Knowledge Vault.",
+        "description": "Search Markdown notes using bounded literal text matching.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "query": {"type": "string"},
-                "limit": {"type": "integer", "minimum": 1, "maximum": 50},
-                "case_sensitive": {"type": "boolean"},
-                "regex": {"type": "boolean"},
+                "query": {"type": "string", "minLength": 1, "maxLength": 1000},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 50, "default": 20},
+                "case_sensitive": {"type": "boolean", "default": False},
             },
             "required": ["query"],
             "additionalProperties": False,
@@ -547,18 +609,31 @@ def error(request_id: Any, exc: JsonRpcError) -> None:
     send({"jsonrpc": "2.0", "id": request_id, "error": item})
 
 
-def unexpected_error(request_id: Any, exc: Exception) -> None:
+def unexpected_error(request_id: Any, _: Exception) -> None:
     send({
         "jsonrpc": "2.0",
         "id": request_id,
-        "error": {"code": -32603, "message": "internal error", "data": str(exc)},
+        "error": {"code": -32603, "message": "internal error"},
     })
 
 
 def main() -> None:
-    config = json.loads(CONFIG_PATH.read_text("utf-8"))
-    server_info = config["server"]
+    if "--list-tools" in sys.argv[1:]:
+        print(json.dumps({"tools": TOOLS}, ensure_ascii=False, indent=2))
+        return
+    if "--help" in sys.argv[1:]:
+        print("Usage: oakb-mcp [--list-tools]\nRun without arguments to serve MCP over stdio.")
+        return
+
+    server_info = CONFIG.get("server") or {
+        "name": "obsidian-agent-kb",
+        "version": "0.2.0",
+        "protocol_version": "2024-11-05",
+    }
     for line in sys.stdin:
+        if len(line.encode("utf-8")) > 2 * 1024 * 1024:
+            send({"jsonrpc": "2.0", "id": None, "error": {"code": -32600, "message": "request exceeds 2 MiB"}})
+            continue
         line = line.strip()
         if not line:
             continue
@@ -567,44 +642,60 @@ def main() -> None:
         except json.JSONDecodeError:
             send({"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "parse error"}})
             continue
-        method = req.get("method")
+        if not isinstance(req, dict) or req.get("jsonrpc") != "2.0" or not isinstance(req.get("method"), str):
+            send({"jsonrpc": "2.0", "id": req.get("id") if isinstance(req, dict) else None, "error": {"code": -32600, "message": "invalid request"}})
+            continue
+        method = req["method"]
         request_id = req.get("id")
+        if method.startswith("notifications/"):
+            continue
+        if request_id is None:
+            send({"jsonrpc": "2.0", "id": None, "error": {"code": -32600, "message": "request id is required"}})
+            continue
         if method == "initialize":
+            params = req.get("params") if isinstance(req.get("params"), dict) else {}
+            requested_version = params.get("protocolVersion")
+            supported_version = requested_version if requested_version in {"2024-11-05", "2025-03-26", "2025-06-18"} else server_info["protocol_version"]
             result(request_id, {
-                "protocolVersion": server_info["protocol_version"],
+                "protocolVersion": supported_version,
                 "capabilities": {"tools": {"listChanged": False}},
                 "serverInfo": {"name": server_info["name"], "version": server_info["version"]},
             })
-        elif method == "notifications/initialized":
-            continue
         elif method == "ping":
             result(request_id, {})
         elif method == "tools/list":
             result(request_id, {"tools": TOOLS})
         elif method == "tools/call":
             params = req.get("params") or {}
-            name = params.get("name")
+            if not isinstance(params, dict) or not isinstance(params.get("name"), str):
+                error(request_id, JsonRpcError(-32602, "tools/call requires a tool name"))
+                continue
+            name = params["name"]
             args = params.get("arguments") or {}
+            if not isinstance(args, dict):
+                error(request_id, JsonRpcError(-32602, "tool arguments must be an object"))
+                continue
             handler = TOOL_HANDLERS.get(name)
             if not handler:
-                send({"jsonrpc": "2.0", "id": request_id, "error": {"code": -32602, "message": f"unknown tool: {name}"}})
+                error(request_id, JsonRpcError(-32602, f"unknown tool: {name}"))
                 continue
             try:
+                validate_vault()
                 value = handler(args)
-                audit(str(name), "", "success")
+                audit(name, "", "success")
                 result(request_id, {
                     "content": [{"type": "text", "text": json.dumps(value, ensure_ascii=False, indent=2)}],
                     "structuredContent": value,
                     "isError": False,
                 })
             except JsonRpcError as exc:
-                audit(str(name), str(args.get("path") or args.get("target_path") or ""), "error", exc.message)
+                audit(name, str(args.get("path") or args.get("target_path") or ""), "error", exc.message)
                 error(request_id, exc)
             except Exception as exc:
-                audit(str(name), str(args.get("path") or args.get("target_path") or ""), "error", str(exc))
+                audit(name, str(args.get("path") or args.get("target_path") or ""), "error", str(exc))
                 unexpected_error(request_id, exc)
-        elif request_id is not None:
-            send({"jsonrpc": "2.0", "id": request_id, "error": {"code": -32601, "message": f"method not found: {method}"}})
+        else:
+            error(request_id, JsonRpcError(-32601, f"method not found: {method}"))
 
 
 if __name__ == "__main__":

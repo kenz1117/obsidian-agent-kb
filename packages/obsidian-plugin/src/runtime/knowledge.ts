@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, realpathSync } from 'node:fs';
 import { appendFile, mkdir, open, readFile, readdir, realpath, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { extractScope } from '../domain.js';
 
 export interface RuntimeFolders {
   knowledgeRoot: string;
@@ -335,12 +336,19 @@ export class KnowledgeRuntime {
     const slug = slugify(optionalText(args, 'slug', title, 128) || title);
     const score = governanceScore(content);
     const relative = `${this.folders.knowledgeRoot}/${this.folders.autoFolder}/${now.date}-${slug}.md`;
+    // 适用范围：显式传入优先，否则从正文的"## 适用范围"段落提取。
+    const scope = optionalText(args, 'scope', '', 500) || extractScope(content);
+    const owner = optionalText(args, 'owner', '', 200) || this.agentId;
+    const expiresAt = optionalText(args, 'expires_at', '', 64);
+    const version = optionalText(args, 'version', '', 32);
     const text = `${frontmatter({
       id: `kb-${now.compact}-${now.hhmm}-${createHash('sha256').update(`${title}\n${content}`).digest('hex').slice(0, 10)}`,
       type: 'knowledge', title, status: 'auto', confidence, agent: this.agentId,
       origin: 'agent', source: `agent://${this.agentId}`, sensitivity: 'internal',
       created: now.date, updated: now.date, governance_score: score,
-      governance_decision: 'review', governance_review_by: 'obsidian-plugin', tags
+      governance_decision: 'review', governance_review_by: 'obsidian-plugin', tags,
+      channel: 'knowledge', state: 'active', valid_from: now.date,
+      owner, scope, expires_at: expiresAt, version
     })}\n# ${title}\n\n${content}\n`;
     return this.writeUnique('kb_create_inbox_card', relative, text);
   }
@@ -355,6 +363,7 @@ export class KnowledgeRuntime {
       id: `message-${now.compact}-${now.hhmm}-${slug}`, type: 'message', title,
       agent: this.agentId, origin: 'agent', source: `agent://${this.agentId}`,
       sensitivity: 'internal', date: now.date, status: 'pending',
+      channel: 'memory', state: 'active',
       tags: normalizeTags(args.tags, ['agent-message', this.agentId])
     })}\n# ${title}\n\n${content}\n`;
     return this.writeUnique('kb_create_message', relative, text);
@@ -372,6 +381,7 @@ export class KnowledgeRuntime {
       id: `session-${now.compact}-${now.hhmm}-${slug}`, type: 'session', title,
       agent: this.agentId, origin: 'agent', source: `agent://${this.agentId}`,
       sensitivity: 'internal', date: now.date, result,
+      channel: 'task', state: 'active',
       tags: normalizeTags(args.tags, ['session', 'agent'])
     })}\n# ${title}\n\n${content}\n`;
     return this.writeUnique('kb_create_session_note', relative, text);

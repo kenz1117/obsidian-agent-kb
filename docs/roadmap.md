@@ -1,42 +1,53 @@
-# Roadmap
+# 路线图
 
-## 0.1 — Foundation
+**语言：** 中文 ｜ [English](roadmap.en.md)
 
-- [x] architecture
-- [x] vault specification
-- [x] governance model
-- [x] governance policy schema
-- [x] core governance engine prototype
-- [ ] frontmatter parser
-- [ ] vault validator
+## 0.1 — 基础设施
+
+- [x] 架构
+- [x] Vault 规范
+- [x] 治理模型
+- [x] 治理策略模式
+- [x] 核心治理引擎原型
+- [x] Frontmatter 解析器
+- [x] Vault 校验器
 
 ## 0.2 — MCP
 
-- [ ] SDK wiring
-- [ ] read tools
-- [ ] message tools
-- [ ] permission boundary tests
-- [ ] secret rejection tests
+- [x] SDK 接入
+- [x] 读取工具
+- [x] 消息工具
+- [x] 权限边界测试
+- [x] 敏感信息拒绝测试
 
-## 0.3 — Governance automation
+## 0.3 — 治理自动化
 
-- [ ] duplicate detection
-- [ ] quality scoring
-- [ ] retention jobs
-- [ ] promotion workflow
-- [ ] audit event store
+- [x] 重复检测
+- [x] 质量评分
+- [ ] 保留策略任务
+- [x] 晋升工作流
+- [x] 审计事件存储
 
-## 0.4 — Obsidian plugin
+## 0.4 — Obsidian 插件
 
-- [ ] review queue
-- [ ] promotion panel
-- [ ] conflict queue
-- [ ] provenance inspector
+- [x] 评审队列
+- [x] 晋升面板
+- [ ] 冲突队列
+- [x] 来源信息查看器
 
-## 0.5 — Connectors
+## 0.5 — 单一插件产品
 
-- [ ] Codex
-- [ ] Claude Code
-- [ ] Cursor
-- [ ] generic CLI
-- [ ] filesystem watcher
+- [x] 内置知识运行时和 MCP 服务
+- [x] 首次启用自动初始化
+- [x] Claude Desktop、Claude Code、Cursor、Windsurf 一键配置
+- [x] 通用 MCP 地址复制
+- [x] 单一 ZIP 安装包和 Release 发布
+- [x] Agent 候选知识直接进入评审队列
+
+## 0.6 — 后续增强
+
+- [ ] Codex 一键配置
+- [ ] 更多 Agent 客户端
+- [ ] 冲突队列完善
+- [ ] 保留策略任务
+- [ ] 文件系统监视器

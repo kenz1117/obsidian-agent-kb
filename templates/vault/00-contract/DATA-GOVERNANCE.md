@@ -1,7 +1,7 @@
 ---
 id: data-governance
 type: contract
-title: Data Governance
+title: 数据治理
 status: canonical
 created: 2026-01-01
 updated: 2026-01-01
@@ -9,17 +9,19 @@ tags:
   - governance
 ---
 
-# Data Governance
+# 数据治理
 
-Raw input is not knowledge.
+**语言：** 中文 ｜ [English](DATA-GOVERNANCE.en.md)
 
-Every object must have:
+原始输入不等于知识。
 
-- provenance
-- source
-- confidence
-- sensitivity
-- lifecycle status
-- retention policy
+每个对象都必须具有：
 
-Canonical status requires governance approval.
+- 来源追踪信息
+- 来源
+- 置信度
+- 敏感级别
+- 生命周期状态
+- 保留策略
+
+正式知识状态必须经过治理批准。

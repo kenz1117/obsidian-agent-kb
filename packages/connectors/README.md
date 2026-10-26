@@ -1,18 +1,20 @@
-# Connectors
+# 连接器
 
-Connectors adapt external platforms to governed intake.
+**语言：** 中文 ｜ [English](README.en.md)
 
-Preferred order:
+连接器负责将外部平台接入受治理的输入流程。
 
-1. Native MCP client
-2. CLI invocation
-3. Filesystem outbox
-4. Webhook connector
-5. Manual paste connector
+推荐优先级：
 
-## Contract
+1. 原生 MCP 客户端
+2. CLI 调用
+3. 文件系统发件箱
+4. Webhook 连接器
+5. 手动粘贴连接器
 
-Every connector must produce:
+## 接口契约
+
+每个连接器都必须生成：
 
 ```yaml
 origin: connector
@@ -23,12 +25,12 @@ source_path: local-or-remote-reference
 timestamp: ISO-8601
 ```
 
-## Current adapters
+## 当前适配器
 
-| Platform | Entry | Status |
+| 平台 | 入口 | 状态 |
 |---|---|---|
-| Codex | MCP stdio | planned |
-| Claude Code | MCP stdio | planned |
-| Cursor | MCP config | planned |
-| Generic CLI | `oakb` CLI | planned |
-| Generic filesystem | inbox watcher | planned |
+| Codex | MCP stdio | 计划中 |
+| Claude Code | MCP stdio | 计划中 |
+| Cursor | MCP 配置 | 计划中 |
+| 通用 CLI | `oakb` CLI | 可用 |
+| 通用文件系统 | 收件箱监视器 | 计划中 |

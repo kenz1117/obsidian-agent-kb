@@ -33,3 +33,7 @@ runtime/
 !packages/obsidian-plugin/src/runtime/*.ts
 apps/gateway/config/gateway.env
 apps/gateway/config/gateway.local.json
+
+# 本地安装工作区：包含 116MB Node 运行时与**真实的 MCP 令牌**，
+# 绝不能进版本控制（见 docs/audit-2026-10-25.md 的 M9）。
+.install-work/

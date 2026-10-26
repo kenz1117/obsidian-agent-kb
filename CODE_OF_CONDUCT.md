@@ -1,5 +1,7 @@
-# Contributor Covenant Code of Conduct
+# Contributor Covenant 行为准则
 
-This project follows the Contributor Covenant, version 2.1.
+**语言：** 中文 ｜ [English](CODE_OF_CONDUCT.en.md)
 
-Read the full text at: https://www.contributor-covenant.org/version/2/1/code_of_conduct/
+本项目遵循 Contributor Covenant 2.1 版行为准则。
+
+完整文本请参阅：https://www.contributor-covenant.org/zh-cn/version/2/1/code_of_conduct/

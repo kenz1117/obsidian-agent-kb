@@ -28,6 +28,83 @@ ACTIONABLE = re.compile(
     re.I,
 )
 
+# 判断力检测：中英文都要覆盖。只匹配英文会让纯中文的知识卡全部判为"无判断"，
+# 等于这道门对中文内容形同虚设。
+JUDGMENT_PATTERNS = [
+    # 中文情态与规范标记
+    re.compile(r"必须|务必|严禁|禁止|不得|不可|不要|切勿|勿|不应|不该|应当|应该|需要|建议|推荐|优先|宁可|避免|防止|确保|保证"),
+    # "应"单用太常见（响应、适应…），必须限定后面的动作动词
+    re.compile(r"应(保留|声明|设置|使用|配置|读取|固定|统一|优先|先|为|是|与|保持|采用|符合|满足|包含|提供|区分|避免|遵循)"),
+    # 因果与依据
+    re.compile(r"因为|因此|所以|由于|原因是|理由是|依据是|基于"),
+    # 规则、职责与边界
+    re.compile(r"规则|约定|规范|约束|前提|条件|边界|限制|准则|标准|要求|职责|负责|决定"),
+    # 方法与步骤
+    re.compile(r"步骤|方法|流程|做法|如何|怎么"),
+    # 失效与例外
+    re.compile(r"风险|例外|除非|失效|过期|不适用|仅当|只有当|不作为"),
+    # 默认与一致
+    re.compile(r"默认|统一|一律|始终|总是|慎用|一致"),
+    re.compile(
+        r"\b(decide|decision|use|prefer|avoid|because|since|therefore|constraint|require|requires|required"
+        r"|must|should|shall|never|always|rule|method|steps?|risk|unless|except|default|only when|do not|don't"
+        r"|responsible for|determines)\b",
+        re.I,
+    ),
+]
+
+
+def has_judgment(body: str) -> bool:
+    """内容里是否有可复用的判断（而不仅仅是事实罗列或原始记录）。"""
+    return any(pattern.search(body) for pattern in JUDGMENT_PATTERNS)
+
+
+def extract_scope(body: str) -> str:
+    """从正文的"## 适用范围"段落提取适用范围。"""
+    match = re.search(r"^##\s*适用范围\s*\n+(.*?)(?=\n##\s|\Z)", body, re.M | re.S)
+    if not match:
+        return ""
+    text = re.sub(r"^[-*]\s*", "", match.group(1), flags=re.M)
+    return re.sub(r"\s+", " ", text).strip()[:500]
+
+
+def admission_blockers(metadata: dict[str, Any], body: str, policy: dict[str, Any]) -> list[str]:
+    """入库准入三道门。返回未通过的门（空列表 = 通过）。"""
+    rules = policy.get("admission", {})
+    blockers: list[str] = []
+
+    # ---- 第一道门：来源与 Owner（一票否决）----
+    if not metadata.get("source") or metadata.get("source") == "unknown":
+        blockers.append("missing source")
+    if rules.get("require_owner", True) and not str(metadata.get("owner") or "").strip():
+        blockers.append("missing owner")
+    scope = str(metadata.get("scope") or "").strip() or extract_scope(body)
+    if rules.get("require_scope", True) and not scope:
+        blockers.append("missing scope")
+    expires_at = str(metadata.get("expires_at") or "")
+    if expires_at and rules.get("expired_is_blocking", True):
+        try:
+            expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+            if expiry.tzinfo is None:
+                expiry = expiry.replace(tzinfo=timezone.utc)
+            if expiry < datetime.now(timezone.utc):
+                blockers.append(f"expired on {expires_at}")
+        except ValueError:
+            pass
+    if str(metadata.get("state") or "active") in rules.get("reject_states", ["archived", "retired", "draft"]):
+        blockers.append(f"state is {metadata.get('state')}")
+
+    # ---- 第二道门：复用与去重（一票否决）----
+    if str(metadata.get("duplicate_of") or "").strip():
+        blockers.append(f"duplicate of {metadata.get('duplicate_of')}")
+
+    # ---- 第三道门：正确性与结构化 ----
+    if rules.get("require_judgment", True) and not has_judgment(body):
+        blockers.append("content contains no reusable judgment")
+    if str(metadata.get("sensitivity") or "") in policy["sensitivity"]["reject"]:
+        blockers.append("secret sensitivity is forbidden")
+    return blockers
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -156,11 +233,18 @@ class Candidate:
 
 
 def _governed_files() -> list[Path]:
+    vault_root = VAULT.resolve()
     roots = [VAULT / "03-knowledge" / x for x in ("auto", "reviewed", "canonical")]
     files: list[Path] = []
     for root in roots:
-        if root.exists():
-            files.extend(path for path in root.rglob("*.md") if path.is_file())
+        if not root.exists():
+            continue
+        for path in root.rglob("*.md"):
+            if path.is_symlink() or not path.is_file():
+                continue
+            resolved = path.resolve()
+            if resolved == vault_root or vault_root in resolved.parents:
+                files.append(path)
     return sorted(set(files))
 
 
@@ -203,6 +287,26 @@ def score_card(metadata: dict[str, Any], body: str) -> tuple[int, list[str]]:
     return max(0, min(100, score)), reasons
 
 
+def reference_counts(vault: Path) -> dict[str, int]:
+    """统计每张正式知识卡被其它笔记引用的次数（零引用是淘汰信号之一）。"""
+    counts: dict[str, int] = {}
+    for card in sorted((vault / "03-knowledge" / "canonical").glob("*.md")):
+        stem = card.stem
+        relative = card.relative_to(vault).as_posix()
+        hits = 0
+        for other in vault.rglob("*.md"):
+            if other == card or ".obsidian" in other.parts or ".git" in other.parts:
+                continue
+            try:
+                text = other.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            if f"[[{stem}" in text or f"[[{stem}]]" in text or f"`{relative}`" in text:
+                hits += 1
+        counts[relative] = hits
+    return counts
+
+
 def route_card(path: Path, metadata: dict[str, Any], body: str, policy: dict[str, Any]) -> tuple[int, str, str, list[str], list[str]]:
     violations: list[str] = []
     reasons: list[str] = []
@@ -226,6 +330,14 @@ def route_card(path: Path, metadata: dict[str, Any], body: str, policy: dict[str
 
     if violations:
         return score, "reject", "archive", reasons, violations
+
+    # ---- 入库准入三道门 ----
+    admission = admission_blockers(metadata, body, policy)
+    if admission:
+        reasons.extend(admission)
+        # 一票否决：来源/Owner/有效期/去重/无判断任一不过，都不能进正式知识层。
+        return score, "review", "reviewed", reasons, violations
+
     if score < policy["quality"]["reject_below"]:
         return score, "archive", "archive", reasons, violations
     if score < policy["quality"]["min_review"]:
@@ -324,6 +436,18 @@ def scan() -> dict[str, Any]:
     for candidate in candidates:
         original_rel = candidate.relative_path
         metadata = candidate.metadata
+        # 人工已批准并晋升的正式知识不参与本轮重路由。
+        # route_card 对通过全部治理门槛的卡返回 "canonical_review"/"reviewed"，
+        # 含义是"canonical 候选、待人工审阅"；但扫描范围包含 canonical 目录，
+        # 若不对已批准卡豁免，每轮扫描都会把它们降级回 reviewed/，
+        # 人工审批结果会被反复抹掉。
+        # 例外：被判定为重复或违规的卡仍需按规则处理。
+        if (
+            metadata.get("status") == "canonical"
+            and original_rel.startswith("03-knowledge/canonical/")
+            and not candidate.violations
+        ):
+            continue
         metadata["governance_score"] = candidate.score
         metadata["governance_decision"] = candidate.decision
         metadata["governance_reviewed_at"] = now_iso()
@@ -388,7 +512,22 @@ def scan() -> dict[str, Any]:
             encoding="utf-8",
         )
     _upsert_map(review_map, "review queue", review_content)
-    _upsert_map(status_map, "last scan", f"- Generated: `{now_iso()}`\n- Scanned: `{len(candidates)}`\n- Review: `{len(review_items)}`\n- Archived: `{len(archive_items)}`")
+    # 淘汰信号：零引用的正式知识卡长期无人使用，应进入淘汰复核。
+    references = reference_counts(VAULT)
+    zero_reference = sorted(path for path, hits in references.items() if hits == 0)
+    status_lines = [
+        f"- Generated: `{now_iso()}`",
+        f"- Scanned: `{len(candidates)}`",
+        f"- Review: `{len(review_items)}`",
+        f"- Archived: `{len(archive_items)}`",
+        f"- Canonical: `{len(references)}`",
+        f"- Zero-reference: `{len(zero_reference)}`",
+    ]
+    if zero_reference:
+        status_lines.append("")
+        status_lines.append("<!-- zero reference candidates -->")
+        status_lines.extend(f"- [{path}]" for path in zero_reference)
+    _upsert_map(status_map, "last scan", "\n".join(status_lines))
 
     audit_path = APP_ROOT / "runtime" / "governance.jsonl"
     audit_path.parent.mkdir(parents=True, exist_ok=True)
@@ -409,14 +548,26 @@ def scan() -> dict[str, Any]:
 
 
 def _find_object(target: str) -> Path:
+    def allowed(candidate: Path) -> Path | None:
+        if candidate.is_symlink() or not candidate.is_file() or candidate.suffix.lower() != ".md":
+            return None
+        resolved = candidate.resolve()
+        try:
+            relative = resolved.relative_to(VAULT).as_posix()
+        except ValueError:
+            return None
+        if not relative.startswith(("03-knowledge/", "90-archive/")):
+            return None
+        return resolved
+
     if Path(target).is_absolute() or target.startswith("03-knowledge/") or target.startswith("90-archive/"):
-        candidate = VAULT / target
-        if candidate.exists():
-            return candidate.resolve()
+        resolved = allowed(VAULT / target)
+        if resolved:
+            return resolved
     for root in ("reviewed", "auto", "canonical"):
-        candidate = VAULT / "03-knowledge" / root / target
-        if candidate.exists():
-            return candidate.resolve()
+        resolved = allowed(VAULT / "03-knowledge" / root / target)
+        if resolved:
+            return resolved
     for path in _governed_files():
         text = path.read_text(encoding="utf-8")
         metadata, _, _ = parse_frontmatter(text)
@@ -428,6 +579,8 @@ def _find_object(target: str) -> Path:
 def promote(target: str, reviewer: str = "human") -> dict[str, Any]:
     policy = load_policy()
     source = _find_object(target)
+    if source.relative_to(VAULT.resolve()).as_posix().startswith("90-archive/"):
+        raise PermissionError("archived objects cannot be promoted")
     text = source.read_text(encoding="utf-8")
     metadata, body, _ = parse_frontmatter(text)
     score = int(metadata.get("governance_score") or 0)
@@ -443,11 +596,13 @@ def promote(target: str, reviewer: str = "human") -> dict[str, Any]:
         reasons.append("sensitivity forbidden")
     if detect_secrets(body):
         reasons.append("potential secret detected")
+    # 准入三道门：Owner / 适用范围 / 有效期 / 去重 / 判断力
+    reasons.extend(admission_blockers(metadata, body, policy))
 
+    if reasons:
+        raise PermissionError("; ".join(reasons))
     if metadata.get("status") == "canonical":
         destination = source
-    elif reasons:
-        raise PermissionError("; ".join(reasons))
     else:
         destination = _unique_destination(VAULT / "03-knowledge" / "canonical" / source.name)
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -457,6 +612,13 @@ def promote(target: str, reviewer: str = "human") -> dict[str, Any]:
     metadata["status"] = "canonical"
     metadata["reviewed_at"] = now_iso()
     metadata["review_by"] = reviewer
+    # Owner 与适用范围在晋升时落定：Owner 是"对正确性负责的人"，
+    # 不是"提交这张卡的人"——后者记在 origin / agent 字段。
+    metadata.setdefault("owner", reviewer)
+    metadata["scope"] = str(metadata.get("scope") or "").strip() or extract_scope(body)
+    metadata.setdefault("valid_from", now_iso()[:10])
+    metadata["state"] = "active"
+    metadata.setdefault("channel", "knowledge")
     write_frontmatter(source, metadata, body)
 
     result = {"promoted": True, "path": source.relative_to(VAULT).as_posix(), "score": score, "reviewer": reviewer}

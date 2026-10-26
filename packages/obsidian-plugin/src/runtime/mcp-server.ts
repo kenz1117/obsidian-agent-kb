@@ -83,7 +83,13 @@ export class EmbeddedMcpServer {
     const server = this.server;
     this.server = null;
     if (!server) return;
-    await new Promise<void>(resolve => server.close(() => resolve()));
+    await new Promise<void>(resolve => {
+      server.close(() => resolve());
+      // Idle keep-alive sockets otherwise hold the close open for the full
+      // `keepAliveTimeout` (5s by default), which stalls every service restart.
+      server.closeIdleConnections?.();
+      setTimeout(() => server.closeAllConnections?.(), 250).unref?.();
+    });
   }
 
   private async handle(request: IncomingMessage, response: ServerResponse): Promise<void> {

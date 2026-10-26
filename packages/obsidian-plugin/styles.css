@@ -1,44 +1,1050 @@
-.oakb-review { padding: 12px; }
-.oakb-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
-.oakb-title { font-weight:650; font-size:1.05em; }
-.oakb-header-actions button { margin-left:6px; }
-.oakb-summary { opacity:.72; margin-bottom:12px; font-size:.85em; }
-.oakb-list { display:flex; flex-direction:column; gap:10px; }
-.oakb-card { border:1px solid var(--background-modifier-border); border-radius:8px; padding:10px; background:var(--background-secondary); }
-.oakb-card-title { font-weight:600; cursor:pointer; margin-bottom:5px; }
-.oakb-card-title:hover { color:var(--interactive-accent); }
-.oakb-card-meta { display:flex; flex-wrap:wrap; gap:10px; font-size:.78em; opacity:.75; margin-bottom:8px; word-break:break-word; }
-.oakb-card-actions { display:flex; gap:6px; }
-.oakb-empty, .oakb-error { opacity:.75; padding:16px 0; }
-.oakb-tabs { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px; }
-.oakb-tab { border-radius:999px; padding:3px 9px; font-size:.78em; }
-.oakb-tab.is-active { background:var(--interactive-accent); color:var(--text-on-accent); }
-.oakb-controls { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:10px; }
-.oakb-search { flex:1 1 180px; }
-.oakb-confidence { display:flex; gap:4px; }
-.oakb-confidence button, .oakb-tab { background:var(--background-secondary); color:var(--text-normal); border:1px solid var(--background-modifier-border); }
-.oakb-confidence button.is-active { background:var(--interactive-accent); color:var(--text-on-accent); }
-.oakb-conflicts { border:1px solid var(--background-modifier-border); padding:8px; border-radius:8px; margin-bottom:10px; }
-.oakb-section-title { font-weight:650; margin-bottom:5px; }
-.oakb-conflict-group { padding:5px; border-radius:5px; background:var(--background-secondary); margin-bottom:5px; font-size:.8em; }
-.oakb-card.is-selected { border-color:var(--interactive-accent); }
-.oakb-card-detail { margin-top:8px; padding-top:8px; border-top:1px solid var(--background-modifier-border); font-size:.78em; opacity:.82; white-space:pre-wrap; }
-.oakb-flag { color:var(--text-warning); font-weight:600; }
-.oakb-modal-actions { display:flex; justify-content:flex-end; gap:6px; margin-top:10px; }
-.oakb-reason-input { width:100%; min-height:80px; }
-.oakb-service-status { padding:10px 12px; border:1px solid var(--background-modifier-border); border-radius:8px; background:var(--background-secondary); }
-.oakb-service-status.is-running { color:var(--text-success); border-color:var(--color-green); }
-.oakb-service-error { color:var(--text-error); white-space:pre-wrap; }
-.oakb-icon-button { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; padding:4px; }
-.oakb-panel-connection { margin-bottom:10px; padding:9px 11px; border:1px solid var(--background-modifier-border); border-radius:8px; background:var(--background-secondary); cursor:pointer; font-size:.82em; }
-.oakb-panel-connection.is-running { border-color:var(--color-green); }
-.oakb-panel-last-connection { margin-top:4px; opacity:.72; }
-.oakb-connections { margin:8px 0 20px; padding:10px 12px; border:1px solid var(--background-modifier-border); border-radius:8px; }
-.oakb-connection-heading { margin:6px 0; font-weight:650; }
-.oakb-connection-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:6px 0; border-top:1px solid var(--background-modifier-border); font-size:.85em; }
-.oakb-connection-name { flex:1; overflow-wrap:anywhere; }
-.oakb-connection-state, .oakb-connection-time { flex-shrink:0; opacity:.78; font-size:.92em; }
-.oakb-connection-copy { flex-shrink:0; padding:3px 7px; font-size:.82em; }
-.oakb-connection-row.is-configured .oakb-connection-state, .oakb-connection-row.is-connected .oakb-connection-name { color:var(--text-success); }
-.oakb-connection-row.is-needs-update .oakb-connection-state, .oakb-connection-row.is-error .oakb-connection-state { color:var(--text-warning); }
-.oakb-connection-empty { padding:6px 0 10px; opacity:.68; font-size:.85em; }
+/* ==========================================================================
+   Obsidian Agent KB — design system
+   --------------------------------------------------------------------------
+   Rules honoured here:
+   - Every colour/spacing comes from Obsidian theme variables (light, dark and
+     community themes all work without extra rules).
+   - 4px spacing grid via --size-4-* (with literal fallbacks for older themes).
+   - Every selector is scoped to a plugin-owned container, which also makes the
+     rules outrank Obsidian's own `button:not(.clickable-icon)` styling.
+   - No !important, no :has(), no inline styles.
+   - Interactive targets are at least 44x44px and expose a visible focus ring.
+   ========================================================================== */
+
+:is(.oakb-review, .oakb-settings, .oakb-modal) {
+  --oakb-radius: var(--radius-m, 8px);
+  --oakb-radius-lg: var(--radius-l, 12px);
+  --oakb-gap-1: var(--size-4-1, 4px);
+  --oakb-gap-2: var(--size-4-2, 8px);
+  --oakb-gap-3: var(--size-4-3, 12px);
+  --oakb-gap-4: var(--size-4-4, 16px);
+  --oakb-gap-6: var(--size-4-6, 24px);
+}
+
+/* ---------------------------------------------------------------- icons --- */
+
+:is(.oakb-review, .oakb-settings, .oakb-modal) .oakb-hero__icon,
+:is(.oakb-review, .oakb-settings, .oakb-modal) .oakb-stat__icon,
+:is(.oakb-review, .oakb-settings, .oakb-modal) .oakb-empty__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:is(.oakb-review, .oakb-settings, .oakb-modal) .oakb-hero__icon svg { width: 20px; height: 20px; }
+:is(.oakb-review, .oakb-settings, .oakb-modal) .oakb-stat__icon svg { width: 14px; height: 14px; color: var(--oakb-tint, var(--text-faint)); }
+:is(.oakb-review, .oakb-settings, .oakb-modal) .oakb-empty__icon svg { width: 28px; height: 28px; }
+
+/* Refresh affordance while a refresh is in flight. */
+:is(.oakb-review, .oakb-settings) .oakb-icon-button.is-spinning .svg-icon {
+  animation: oakb-spin 900ms linear infinite;
+}
+
+@keyframes oakb-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.oakb-review, .oakb-settings) .oakb-icon-button.is-spinning .svg-icon { animation: none; }
+  :is(.oakb-review, .oakb-settings) .oakb-stat:hover { transform: none; }
+}
+
+/* ---------------------------------------------------------------- hero --- */
+
+:is(.oakb-review, .oakb-settings) .oakb-hero {
+  position: relative;
+  overflow: hidden;
+  padding: var(--oakb-gap-4) var(--oakb-gap-4) var(--oakb-gap-3);
+  margin-bottom: var(--oakb-gap-4);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--oakb-radius-lg);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--interactive-accent) 14%, transparent) 0%,
+      color-mix(in srgb, var(--interactive-accent) 3%, transparent) 45%,
+      transparent 100%
+    ),
+    var(--background-secondary);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-hero__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--oakb-gap-3);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-hero__title {
+  display: flex;
+  align-items: center;
+  gap: var(--oakb-gap-2);
+  margin: 0;
+  font-family: var(--font-interface-theme);
+  font-size: var(--font-ui-large, 20px);
+  font-weight: var(--font-bold, 700);
+  line-height: 1.3;
+  color: var(--text-normal);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-hero__title .svg-icon {
+  color: var(--interactive-accent);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-hero__subtitle {
+  margin: var(--oakb-gap-1) 0 0;
+  font-size: var(--font-ui-small, 13px);
+  color: var(--text-muted);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-hero__actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--oakb-gap-1);
+}
+
+/* --------------------------------------------------------- icon button --- */
+
+:is(.oakb-review, .oakb-settings) .oakb-icon-button {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: var(--oakb-gap-2);
+  border: 1px solid transparent;
+  border-radius: var(--oakb-radius);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-icon-button:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-icon-button:focus-visible,
+:is(.oakb-review, .oakb-settings) .oakb-stat:focus-visible,
+:is(.oakb-review, .oakb-settings) .oakb-segment button:focus-visible,
+:is(.oakb-review, .oakb-settings) .oakb-card__title:focus-visible,
+:is(.oakb-review, .oakb-settings) .oakb-status:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+}
+
+/* -------------------------------------------------------- status strip --- */
+
+:is(.oakb-review, .oakb-settings) .oakb-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--oakb-gap-2);
+  padding: var(--oakb-gap-2) var(--oakb-gap-3);
+  margin-bottom: var(--oakb-gap-3);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--oakb-radius);
+  background: var(--background-secondary);
+  font-size: var(--font-ui-small, 13px);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-status:hover {
+  border-color: var(--background-modifier-border-hover);
+  background: var(--background-primary-alt);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-status__dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-status--running .oakb-status__dot {
+  background: var(--color-green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-green) 22%, transparent);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-status--starting .oakb-status__dot {
+  background: var(--color-yellow);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-yellow) 22%, transparent);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-status--error .oakb-status__dot {
+  background: var(--color-red);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-red) 22%, transparent);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-status__label {
+  color: var(--text-normal);
+  font-weight: var(--font-semibold, 600);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-status__spacer {
+  flex: 1 1 auto;
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-status__hint {
+  color: var(--text-faint);
+  overflow-wrap: anywhere;
+}
+
+/* --------------------------------------------------------- stat tiles --- */
+
+:is(.oakb-review, .oakb-settings) .oakb-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--oakb-gap-2);
+  margin-bottom: var(--oakb-gap-4);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-stat {
+  --oakb-tint: var(--text-faint);
+  position: relative;
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  /* Obsidian centres button content vertically and fixes button height;
+     both must be reset or the label escapes the tile. */
+  justify-content: flex-start;
+  gap: 2px;
+  height: auto;
+  min-height: 44px;
+  padding: var(--oakb-gap-3);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--oakb-radius);
+  background: var(--background-secondary);
+  box-shadow: none;
+  color: var(--text-normal);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease, transform 120ms ease;
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-stat:hover {
+  border-color: var(--background-modifier-border-hover);
+  background: var(--background-primary-alt);
+  transform: translateY(-1px);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-stat.is-active {
+  border-color: var(--oakb-tint);
+  background: color-mix(in srgb, var(--oakb-tint) 12%, var(--background-secondary));
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-stat.is-active::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 0 0 var(--oakb-radius) var(--oakb-radius);
+  background: var(--oakb-tint);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-stat__head {
+  display: flex;
+  align-items: center;
+  gap: var(--oakb-gap-2);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-stat__value {
+  font-family: var(--font-interface-theme);
+  font-size: var(--font-ui-large, 20px);
+  font-weight: var(--font-bold, 700);
+  line-height: 1.1;
+  color: var(--text-normal);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-stat.is-active .oakb-stat__value {
+  color: var(--oakb-tint);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-stat__label {
+  font-size: var(--font-ui-small, 13px);
+  color: var(--text-muted);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-stat--review { --oakb-tint: var(--color-orange); }
+:is(.oakb-review, .oakb-settings) .oakb-stat--auto { --oakb-tint: var(--color-blue); }
+:is(.oakb-review, .oakb-settings) .oakb-stat--conflicts { --oakb-tint: var(--color-red); }
+:is(.oakb-review, .oakb-settings) .oakb-stat--canonical { --oakb-tint: var(--color-green); }
+:is(.oakb-review, .oakb-settings) .oakb-stat--archive { --oakb-tint: var(--text-faint); }
+:is(.oakb-review, .oakb-settings) .oakb-stat--stale { --oakb-tint: var(--color-yellow); }
+
+/* ------------------------------------------------------------ toolbar --- */
+
+:is(.oakb-review, .oakb-settings) .oakb-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--oakb-gap-2);
+  margin-bottom: var(--oakb-gap-3);
+}
+
+/* Keep the scrollbar gutter reserved so the toolbar does not change width
+   when a filter makes the card list shorter than the viewport. */
+:is(.oakb-review) {
+  scrollbar-gutter: stable;
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-search {
+  flex: 1 1 0;
+  min-width: 120px;
+  height: 36px;
+  padding: 0 var(--oakb-gap-3);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--input-radius, 6px);
+  background: var(--background-modifier-form-field);
+  color: var(--text-normal);
+  font-size: var(--font-ui-small, 13px);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-search:focus-visible,
+:is(.oakb-review, .oakb-settings) .oakb-score:focus-visible,
+:is(.oakb-review, .oakb-modal) .oakb-reason-input:focus-visible {
+  border-color: var(--interactive-accent);
+  outline: 2px solid color-mix(in srgb, var(--interactive-accent) 35%, transparent);
+  outline-offset: 0;
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-score {
+  flex-shrink: 0;
+  width: 108px;
+  height: 36px;
+  padding: 0 var(--oakb-gap-2);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--input-radius, 6px);
+  background: var(--background-modifier-form-field);
+  color: var(--text-normal);
+  font-size: var(--font-ui-small, 13px);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-segment {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 2px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--oakb-radius);
+  background: var(--background-secondary);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-segment button {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: auto;
+  min-height: 30px;
+  padding: 0 var(--oakb-gap-3);
+  border: none;
+  border-radius: calc(var(--oakb-radius) - 2px);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  /* Every segment keeps the same weight: changing the weight of the active
+     one would resize the control and make the toolbar re-wrap, which made the
+     search field jump between two widths. */
+  font-size: var(--font-ui-small, 13px);
+  font-weight: var(--font-normal, 400);
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-segment button:hover {
+  color: var(--text-normal);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-segment button.is-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+/* --------------------------------------------------------------- list --- */
+
+:is(.oakb-review, .oakb-settings) .oakb-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oakb-gap-2);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-card {
+  --oakb-tint: var(--background-modifier-border);
+  position: relative;
+  padding: var(--oakb-gap-3) var(--oakb-gap-4);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--oakb-radius);
+  background: var(--background-secondary);
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-card:hover {
+  border-color: var(--background-modifier-border-hover);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-card.is-selected {
+  border-color: var(--interactive-accent);
+  background: var(--background-primary-alt);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-card::before {
+  content: '';
+  position: absolute;
+  inset-block: var(--oakb-gap-2);
+  inset-inline-start: 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--oakb-tint);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-card--review { --oakb-tint: var(--color-orange); }
+:is(.oakb-review, .oakb-settings) .oakb-card--auto { --oakb-tint: var(--color-blue); }
+:is(.oakb-review, .oakb-settings) .oakb-card--canonical { --oakb-tint: var(--color-green); }
+:is(.oakb-review, .oakb-settings) .oakb-card--archive { --oakb-tint: var(--text-faint); }
+:is(.oakb-review, .oakb-settings) .oakb-card--conflicts { --oakb-tint: var(--color-red); }
+:is(.oakb-review, .oakb-settings) .oakb-card--stale { --oakb-tint: var(--color-yellow); }
+
+:is(.oakb-review, .oakb-settings) .oakb-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--oakb-gap-3);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-card__title {
+  /* A real <button> for keyboard access, but stripped of Obsidian's button
+     chrome so it reads as a plain heading. */
+  appearance: none;
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-normal);
+  font-family: var(--font-interface-theme);
+  font-size: var(--font-ui-medium, 15px);
+  font-weight: var(--font-semibold, 600);
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  /* Long titles are truncated so the action buttons always stay in view. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-card__title:hover {
+  color: var(--interactive-accent);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--oakb-gap-1);
+  margin-top: var(--oakb-gap-2);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px var(--oakb-gap-2);
+  border-radius: 999px;
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller, 12px);
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-badge--status {
+  background: color-mix(in srgb, var(--oakb-tint) 18%, transparent);
+  color: var(--oakb-tint);
+  font-weight: var(--font-semibold, 600);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-badge--score {
+  background: color-mix(in srgb, var(--color-green) 16%, transparent);
+  color: var(--color-green);
+  font-weight: var(--font-semibold, 600);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-badge--score.is-low {
+  background: color-mix(in srgb, var(--color-red) 16%, transparent);
+  color: var(--color-red);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-badge--confidence-high {
+  background: color-mix(in srgb, var(--color-green) 16%, transparent);
+  color: var(--color-green);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-badge--confidence-medium {
+  background: color-mix(in srgb, var(--color-orange) 16%, transparent);
+  color: var(--color-orange);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-badge--confidence-low {
+  background: color-mix(in srgb, var(--color-red) 16%, transparent);
+  color: var(--color-red);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-badge--warning {
+  background: color-mix(in srgb, var(--color-yellow) 18%, transparent);
+  color: var(--color-yellow);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-badge--danger {
+  background: color-mix(in srgb, var(--color-red) 16%, transparent);
+  color: var(--color-red);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-card__quick {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-quick-button {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--oakb-radius);
+  background: var(--background-primary);
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-quick-button:hover {
+  border-color: var(--background-modifier-border-hover);
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-quick-button:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-quick-button.mod-cta {
+  border-color: var(--interactive-accent);
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-quick-button.mod-cta:hover {
+  border-color: var(--interactive-accent-hover);
+  background: var(--interactive-accent-hover);
+  color: var(--text-on-accent);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-card__detail {
+  display: grid;
+  grid-template-columns: minmax(72px, auto) 1fr;
+  gap: var(--oakb-gap-1) var(--oakb-gap-3);
+  margin-top: var(--oakb-gap-3);
+  padding-top: var(--oakb-gap-3);
+  border-top: 1px dashed var(--background-modifier-border);
+  font-size: var(--font-ui-small, 13px);
+  color: var(--text-muted);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-card__detail dt {
+  color: var(--text-faint);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-card__detail dd {
+  margin: 0;
+  color: var(--text-normal);
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------- empty / conflicts --- */
+
+:is(.oakb-review, .oakb-settings) .oakb-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--oakb-gap-2);
+  padding: var(--oakb-gap-6) var(--oakb-gap-4);
+  border: 1px dashed var(--background-modifier-border);
+  border-radius: var(--oakb-radius-lg);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-empty__icon {
+  color: var(--text-faint);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-empty__title {
+  font-family: var(--font-interface-theme);
+  font-size: var(--font-ui-medium, 15px);
+  font-weight: var(--font-semibold, 600);
+  color: var(--text-normal);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-empty__hint {
+  max-width: 42ch;
+  font-size: var(--font-ui-small, 13px);
+  color: var(--text-faint);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-error {
+  padding: var(--oakb-gap-3);
+  border: 1px solid var(--color-red);
+  border-radius: var(--oakb-radius);
+  background: color-mix(in srgb, var(--color-red) 10%, transparent);
+  color: var(--text-error);
+  font-size: var(--font-ui-small, 13px);
+  white-space: pre-wrap;
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-conflicts {
+  padding: var(--oakb-gap-3);
+  margin-bottom: var(--oakb-gap-3);
+  border: 1px solid color-mix(in srgb, var(--color-red) 40%, var(--background-modifier-border));
+  border-radius: var(--oakb-radius);
+  background: color-mix(in srgb, var(--color-red) 6%, transparent);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-section-title {
+  margin: 0 0 var(--oakb-gap-2);
+  font-family: var(--font-interface-theme);
+  font-size: var(--font-ui-medium, 15px);
+  font-weight: var(--font-semibold, 600);
+  color: var(--text-normal);
+}
+
+:is(.oakb-review, .oakb-settings) .oakb-conflict-group {
+  padding: var(--oakb-gap-2) var(--oakb-gap-3);
+  margin-bottom: var(--oakb-gap-1);
+  border-radius: var(--oakb-radius);
+  background: var(--background-secondary);
+  font-size: var(--font-ui-small, 13px);
+  color: var(--text-muted);
+}
+
+/* -------------------------------------------------------------- modal --- */
+
+:is(.oakb-review, .oakb-settings, .oakb-modal) .oakb-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--oakb-gap-2);
+  margin-top: var(--oakb-gap-4);
+}
+
+:is(.oakb-review, .oakb-settings, .oakb-modal) .oakb-reason-input {
+  width: 100%;
+  min-height: 96px;
+  margin-top: var(--oakb-gap-2);
+  font-family: var(--font-text-theme);
+}
+
+/* ------------------------------------------------------- decision modal --- */
+
+:is(.oakb-modal) .oakb-decision-verdict {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--oakb-gap-3);
+  margin: var(--oakb-gap-2) 0 var(--oakb-gap-3);
+  border-radius: 999px;
+  border: 1px solid var(--background-modifier-border);
+  font-size: var(--font-ui-small, 13px);
+  font-weight: var(--font-semibold, 600);
+}
+
+:is(.oakb-modal) .oakb-decision-verdict.is-ok {
+  border-color: color-mix(in srgb, var(--color-green) 45%, transparent);
+  background: color-mix(in srgb, var(--color-green) 12%, transparent);
+  color: var(--color-green);
+}
+
+:is(.oakb-modal) .oakb-decision-verdict.is-warn {
+  border-color: color-mix(in srgb, var(--color-yellow) 45%, transparent);
+  background: color-mix(in srgb, var(--color-yellow) 12%, transparent);
+  color: var(--color-yellow);
+}
+
+:is(.oakb-modal) .oakb-decision-verdict.is-bad {
+  border-color: color-mix(in srgb, var(--color-red) 45%, transparent);
+  background: color-mix(in srgb, var(--color-red) 12%, transparent);
+  color: var(--color-red);
+}
+
+:is(.oakb-modal) .oakb-decision-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: var(--oakb-gap-2);
+  margin-bottom: var(--oakb-gap-3);
+}
+
+:is(.oakb-modal) .oakb-decision-cell {
+  padding: var(--oakb-gap-2) var(--oakb-gap-3);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--oakb-radius);
+  background: var(--background-secondary);
+}
+
+:is(.oakb-modal) .oakb-decision-label {
+  font-size: var(--font-ui-smaller, 12px);
+  color: var(--text-faint);
+}
+
+:is(.oakb-modal) .oakb-decision-value {
+  margin-top: 2px;
+  font-size: var(--font-ui-small, 13px);
+  color: var(--text-normal);
+  overflow-wrap: anywhere;
+}
+
+:is(.oakb-modal) .oakb-decision-reason,
+:is(.oakb-modal) .oakb-decision-blockers {
+  padding: var(--oakb-gap-2) var(--oakb-gap-3);
+  margin-bottom: var(--oakb-gap-2);
+  border-left: 3px solid var(--interactive-accent);
+  border-radius: 0 var(--oakb-radius) var(--oakb-radius) 0;
+  background: var(--background-secondary);
+}
+
+:is(.oakb-modal) .oakb-decision-blockers {
+  border-left-color: var(--color-red);
+}
+
+/* ============================================================== settings = */
+
+:is(.oakb-settings) .setting-item {
+  border-top: none;
+  padding-top: var(--oakb-gap-2);
+  padding-bottom: var(--oakb-gap-2);
+}
+
+:is(.oakb-settings) .setting-item-name {
+  font-weight: var(--font-semibold, 600);
+}
+
+:is(.oakb-settings) .setting-item-description {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small, 13px);
+  line-height: 1.5;
+}
+
+:is(.oakb-settings) h2,
+:is(.oakb-settings) h3 {
+  font-family: var(--font-interface-theme);
+  color: var(--text-normal);
+}
+
+/* status hero */
+
+:is(.oakb-settings) .oakb-hero-status {
+  display: flex;
+  align-items: center;
+  gap: var(--oakb-gap-3);
+  padding: var(--oakb-gap-4);
+  margin-bottom: var(--oakb-gap-4);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--oakb-radius-lg);
+  background:
+    linear-gradient(
+      120deg,
+      color-mix(in srgb, var(--interactive-accent) 10%, transparent) 0%,
+      transparent 60%
+    ),
+    var(--background-secondary);
+}
+
+:is(.oakb-settings) .oakb-hero-status__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--oakb-gap-2);
+  padding: var(--oakb-gap-1) var(--oakb-gap-3);
+  border-radius: 999px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  font-size: var(--font-ui-small, 13px);
+  font-weight: var(--font-semibold, 600);
+  white-space: nowrap;
+}
+
+:is(.oakb-settings) .oakb-hero-status__badge.is-running {
+  border-color: color-mix(in srgb, var(--color-green) 45%, transparent);
+  background: color-mix(in srgb, var(--color-green) 12%, transparent);
+  color: var(--color-green);
+}
+
+:is(.oakb-settings) .oakb-hero-status__badge.is-running .oakb-status__dot {
+  background: var(--color-green);
+}
+
+:is(.oakb-settings) .oakb-hero-status__badge.is-starting .oakb-status__dot {
+  background: var(--color-yellow);
+}
+
+:is(.oakb-settings) .oakb-hero-status__badge.is-error .oakb-status__dot {
+  background: var(--color-red);
+}
+
+:is(.oakb-settings) .oakb-hero-status__badge.is-stopped .oakb-status__dot {
+  background: var(--text-faint);
+}
+
+:is(.oakb-settings) .oakb-hero-status__badge.is-starting {
+  border-color: color-mix(in srgb, var(--color-yellow) 45%, transparent);
+  background: color-mix(in srgb, var(--color-yellow) 12%, transparent);
+  color: var(--color-yellow);
+}
+
+:is(.oakb-settings) .oakb-hero-status__badge.is-error {
+  border-color: color-mix(in srgb, var(--color-red) 45%, transparent);
+  background: color-mix(in srgb, var(--color-red) 12%, transparent);
+  color: var(--color-red);
+}
+
+:is(.oakb-settings) .oakb-hero-status__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+:is(.oakb-settings) .oakb-hero-status__title {
+  margin: 0;
+  font-family: var(--font-interface-theme);
+  font-size: var(--font-ui-medium, 15px);
+  font-weight: var(--font-bold, 700);
+  color: var(--text-normal);
+}
+
+:is(.oakb-settings) .oakb-hero-status__desc {
+  margin: var(--oakb-gap-1) 0 0;
+  font-size: var(--font-ui-small, 13px);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+:is(.oakb-settings) .oakb-hero-status__desc code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+  font-family: var(--font-monospace-theme);
+  font-size: var(--font-ui-smaller, 12px);
+  overflow-wrap: anywhere;
+}
+
+/* agent list */
+
+:is(.oakb-settings) .oakb-agents {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oakb-gap-1);
+  margin: var(--oakb-gap-2) 0 var(--oakb-gap-4);
+}
+
+:is(.oakb-settings) .oakb-agent {
+  display: flex;
+  align-items: center;
+  gap: var(--oakb-gap-3);
+  padding: var(--oakb-gap-2) var(--oakb-gap-3);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--oakb-radius);
+  background: var(--background-secondary);
+  transition: border-color 120ms ease;
+}
+
+:is(.oakb-settings) .oakb-agent:hover {
+  border-color: var(--background-modifier-border-hover);
+}
+
+:is(.oakb-settings) .oakb-agent__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--font-interface-theme);
+  font-size: var(--font-ui-medium, 15px);
+  font-weight: var(--font-semibold, 600);
+  color: var(--text-normal);
+  overflow-wrap: anywhere;
+}
+
+:is(.oakb-settings) .oakb-agent__id {
+  display: block;
+  margin-top: 1px;
+  font-family: var(--font-monospace-theme);
+  font-size: var(--font-ui-smaller, 12px);
+  font-weight: var(--font-normal, 400);
+  color: var(--text-faint);
+}
+
+:is(.oakb-settings) .oakb-agent__state {
+  flex-shrink: 0;
+  padding: 1px var(--oakb-gap-2);
+  border-radius: 999px;
+  font-size: var(--font-ui-smaller, 12px);
+  font-weight: var(--font-semibold, 600);
+  white-space: nowrap;
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+}
+
+:is(.oakb-settings) .oakb-agent__state.is-configured,
+:is(.oakb-settings) .oakb-agent__state.is-connected {
+  background: color-mix(in srgb, var(--color-green) 16%, transparent);
+  color: var(--color-green);
+}
+
+:is(.oakb-settings) .oakb-agent__state.is-needs-update {
+  background: color-mix(in srgb, var(--color-yellow) 18%, transparent);
+  color: var(--color-yellow);
+}
+
+:is(.oakb-settings) .oakb-agent__state.is-error {
+  background: color-mix(in srgb, var(--color-red) 16%, transparent);
+  color: var(--color-red);
+}
+
+:is(.oakb-settings) .oakb-agent__copy {
+  flex-shrink: 0;
+  height: auto;
+  min-height: 30px;
+  padding: 0 var(--oakb-gap-3);
+  font-size: var(--font-ui-small, 13px);
+}
+
+/* connection log */
+
+:is(.oakb-settings) .oakb-connections {
+  margin: var(--oakb-gap-2) 0 var(--oakb-gap-4);
+  padding: var(--oakb-gap-3);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--oakb-radius);
+  background: var(--background-secondary);
+}
+
+:is(.oakb-settings) .oakb-connection-heading {
+  margin: 0 0 var(--oakb-gap-2);
+  font-family: var(--font-interface-theme);
+  font-size: var(--font-ui-small, 13px);
+  font-weight: var(--font-bold, 700);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+:is(.oakb-settings) .oakb-connection-heading:not(:first-child) {
+  margin-top: var(--oakb-gap-4);
+  padding-top: var(--oakb-gap-3);
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+:is(.oakb-settings) .oakb-connection-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--oakb-gap-3);
+  padding: var(--oakb-gap-2) 0;
+  border-top: 1px solid var(--background-modifier-border);
+  font-size: var(--font-ui-small, 13px);
+}
+
+:is(.oakb-settings) .oakb-connection-row:first-of-type {
+  border-top: none;
+}
+
+:is(.oakb-settings) .oakb-connection-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--text-normal);
+  overflow-wrap: anywhere;
+}
+
+:is(.oakb-settings) .oakb-connection-state,
+:is(.oakb-settings) .oakb-connection-time {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller, 12px);
+}
+
+:is(.oakb-settings) .oakb-connection-row.is-configured .oakb-connection-state,
+:is(.oakb-settings) .oakb-connection-row.is-connected .oakb-connection-name {
+  color: var(--color-green);
+}
+
+:is(.oakb-settings) .oakb-connection-row.is-needs-update .oakb-connection-state,
+:is(.oakb-settings) .oakb-connection-row.is-error .oakb-connection-state {
+  color: var(--color-yellow);
+}
+
+:is(.oakb-settings) .oakb-connection-empty {
+  padding: var(--oakb-gap-2) 0;
+  color: var(--text-faint);
+  font-size: var(--font-ui-small, 13px);
+  line-height: 1.5;
+}
+
+/* inline notice blocks */
+
+:is(.oakb-settings) .oakb-service-status {
+  padding: var(--oakb-gap-3);
+  margin-bottom: var(--oakb-gap-3);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--oakb-radius);
+  background: var(--background-secondary);
+  font-size: var(--font-ui-small, 13px);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+:is(.oakb-settings) .oakb-service-status.is-running {
+  border-color: color-mix(in srgb, var(--color-green) 40%, transparent);
+  background: color-mix(in srgb, var(--color-green) 8%, transparent);
+  color: var(--color-green);
+}
+
+:is(.oakb-settings) .oakb-service-error {
+  padding: var(--oakb-gap-3);
+  margin-bottom: var(--oakb-gap-3);
+  border: 1px solid color-mix(in srgb, var(--color-red) 45%, transparent);
+  border-radius: var(--oakb-radius);
+  background: color-mix(in srgb, var(--color-red) 8%, transparent);
+  color: var(--text-error);
+  font-size: var(--font-ui-small, 13px);
+  white-space: pre-wrap;
+}
+
+/* folder path hint */
+
+:is(.oakb-settings) .oakb-folder-hint {
+  margin-top: var(--oakb-gap-2);
+  padding: var(--oakb-gap-2) var(--oakb-gap-3);
+  border-left: 3px solid var(--interactive-accent);
+  border-radius: 0 var(--oakb-radius) var(--oakb-radius) 0;
+  background: var(--background-secondary);
+  font-family: var(--font-monospace-theme);
+  font-size: var(--font-ui-smaller, 12px);
+  line-height: 1.7;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

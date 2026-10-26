@@ -39,5 +39,12 @@
     "allowed_confidence": ["medium", "high"],
     "forbidden_sensitivity": ["secret"],
     "reviewer": "human-or-governance-engine"
+  },
+  "admission": {
+    "require_owner": true,
+    "require_scope": true,
+    "require_judgment": true,
+    "reject_states": ["archived", "retired", "draft"],
+    "expired_is_blocking": true
   }
 }

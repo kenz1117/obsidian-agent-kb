@@ -1,20 +1,24 @@
 {
   "name": "@oakb/mcp",
-  "version": "0.1.0",
-  "description": "MCP server for Obsidian Agent KB.",
+  "version": "0.2.0",
+  "description": "SDK-based MCP server backed by the governed Obsidian Agent KB gateway.",
+  "private": true,
   "type": "module",
   "main": "dist/server.js",
   "bin": {
     "oakb-mcp": "dist/server.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/server.ts",
-    "test": "node --test"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "pnpm build && node --test test/*.test.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
-    "@oakb/core": "workspace:*"
+    "@modelcontextprotocol/sdk": "1.32.2"
   },
   "devDependencies": {
     "tsx": "^4.19.0",

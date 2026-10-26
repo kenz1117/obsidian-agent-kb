@@ -1,6 +1,7 @@
 {
   "name": "@oakb/cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
+  "private": true,
   "description": "Command-line interface for Obsidian Agent KB.",
   "type": "module",
   "bin": {
@@ -9,10 +10,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/index.ts",
-    "test": "node --test"
-  },
-  "dependencies": {
-    "@oakb/core": "workspace:*"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "pnpm build && node --test test/*.test.js"
   },
   "devDependencies": {
     "tsx": "^4.19.0",

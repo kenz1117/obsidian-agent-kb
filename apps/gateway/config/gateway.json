@@ -10,7 +10,7 @@
   ],
   "server": {
     "name": "obsidian-agent-kb",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "protocol_version": "2024-11-05"
   },
   "limits": {

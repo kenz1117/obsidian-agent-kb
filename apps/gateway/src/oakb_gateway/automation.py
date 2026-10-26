@@ -135,7 +135,8 @@ def inbox_triage() -> dict[str, Any]:
         lines += [f"### `{agent}`", ""]
         lines += ["| Title | Type | Status | Path |", "|---|---|---|---|"]
         for item in agent_items:
-            lines.append(f"| {item['title'].replace('|', '\\|')} | `{item['type']}` | `{item['status']}` | `{item['path']}` |")
+            title = item["title"].replace("|", "\\|")
+            lines.append(f"| {title} | `{item['type']}` | `{item['status']}` | `{item['path']}` |")
         lines.append("")
 
     lines += ["## Proposals", ""]
@@ -144,7 +145,8 @@ def inbox_triage() -> dict[str, Any]:
     else:
         lines += ["| Agent | Title | Status | Path |", "|---|---|---|---|"]
         for item in proposals:
-            lines.append(f"| `{item['agent']}` | {item['title'].replace('|', '\\|')} | `{item['status']}` | `{item['path']}` |")
+            title = item["title"].replace("|", "\\|")
+            lines.append(f"| `{item['agent']}` | {title} | `{item['status']}` | `{item['path']}` |")
     lines += ["", "## Duplicate Title Groups", ""]
     if not duplicates:
         lines.append("None.")
@@ -279,7 +281,7 @@ def decision_sync() -> dict[str, Any]:
 
 def load_audit_events() -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
-    audit_root = Path(os.environ.get("KB_RUNTIME_DIR", ROOT if "ROOT" in globals() else "./runtime")) / "audit"
+    audit_root = Path(os.environ.get("KB_RUNTIME_DIR", "./runtime")).expanduser().resolve() / "audit"
     if not audit_root.exists():
         return events
     for path in audit_root.rglob("*.jsonl"):
@@ -329,7 +331,8 @@ def status_sync() -> dict[str, Any]:
 
     marker = "## MCP 接入结果更新"
     text = re.sub(r"^- Status Sync generated at `.*?`.*$\n?", "", text, flags=re.M)
-    sync_note = f"- Status Sync generated at `{now_iso()}`: MCP confirmed `{len(mcp_success)}/9`, CLI fallback confirmed `{len(cli_success)}/9`.\n"
+    total_agents = len(AGENTS)
+    sync_note = f"- Status Sync generated at `{now_iso()}`: MCP confirmed `{len(mcp_success)}/{total_agents}`, CLI fallback confirmed `{len(cli_success)}/{total_agents}`.\n"
     if marker in text:
         text += sync_note
     else:

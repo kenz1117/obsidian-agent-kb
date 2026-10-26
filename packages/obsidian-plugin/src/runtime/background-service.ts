@@ -3,11 +3,27 @@ import { get as httpGet } from 'node:http';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import type { OakbSettings } from '../types';
 
 const execute = promisify(execFile);
 const SERVICE_LABEL = 'md.obsidian.agent-kb';
+const LAUNCHCTL_TIMEOUT_MS = 15000;
+const HEALTH_TIMEOUT_MS = 15000;
+
+export interface ServiceConfig {
+  vaultRoot: string;
+  auditDirectory: string;
+  folders: {
+    knowledgeRoot: string;
+    autoFolder: string;
+    reviewedFolder: string;
+    canonicalFolder: string;
+    archiveRoot: string;
+  };
+  port: number;
+  tokens: Record<string, string>;
+}
 
 function servicePlist(executable: string, script: string, config: string, log: string, errorLog: string): string {
   const xml = (value: string): string => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -45,12 +61,8 @@ export class BackgroundMcpService {
     return `http://127.0.0.1:${settings.mcpPort}/mcp/${token}`;
   }
 
-  async start(settings: OakbSettings): Promise<void> {
-    if (process.platform !== 'darwin') throw new Error('The embedded background service currently requires macOS');
-    if (typeof process.getuid !== 'function') throw new Error('Cannot determine the current user');
-    await mkdir(this.runtimeDirectory, { recursive: true });
-    await mkdir(path.dirname(this.plist), { recursive: true });
-    const config = {
+  private buildConfig(settings: OakbSettings): ServiceConfig {
+    return {
       vaultRoot: this.vaultRoot,
       auditDirectory: this.runtimeDirectory,
       folders: {
@@ -66,7 +78,44 @@ export class BackgroundMcpService {
         ...Object.fromEntries(Object.entries(settings.agentTokens).map(([agentId, token]) => [token, agentId]))
       }
     };
-    await writeFile(this.config, `${JSON.stringify(config, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+  }
+
+  /**
+   * True when a service is already listening with exactly the configuration we
+   * want. Only then may the plugin adopt it instead of restarting it.
+   */
+  async isCurrentAndHealthy(settings: OakbSettings): Promise<boolean> {
+    if (process.platform !== 'darwin') return false;
+    let existing: string;
+    try {
+      existing = await readFile(this.config, 'utf8');
+    } catch {
+      return false;
+    }
+    let matches = false;
+    try {
+      const parsed = JSON.parse(existing) as ServiceConfig;
+      const desired = this.buildConfig(settings);
+      matches = JSON.stringify(parsed) === JSON.stringify(desired);
+    } catch {
+      matches = false;
+    }
+    if (!matches) return false;
+    return this.checkHealth(settings.mcpPort);
+  }
+
+  async start(settings: OakbSettings): Promise<void> {
+    if (process.platform !== 'darwin') throw new Error('The embedded background service currently requires macOS');
+    if (typeof process.getuid !== 'function') throw new Error('Cannot determine the current user');
+
+    // Fast path: the launch agent is already running this exact configuration.
+    // Restarting it would needlessly drop every live agent connection and cost
+    // seconds of plugin load time.
+    if (await this.isCurrentAndHealthy(settings)) return;
+
+    await mkdir(this.runtimeDirectory, { recursive: true });
+    await mkdir(path.dirname(this.plist), { recursive: true });
+    await writeFile(this.config, `${JSON.stringify(this.buildConfig(settings), null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
     await writeFile(this.plist, servicePlist(
       this.executable,
       this.script,
@@ -76,39 +125,42 @@ export class BackgroundMcpService {
     ), 'utf8');
 
     const domain = `gui/${process.getuid()}`;
-    await execute('launchctl', ['bootout', domain, this.plist]).catch(() => undefined);
-    await execute('launchctl', ['bootstrap', domain, this.plist]);
+    await execute('launchctl', ['bootout', domain, this.plist], { timeout: LAUNCHCTL_TIMEOUT_MS }).catch(() => undefined);
+    await execute('launchctl', ['bootstrap', domain, this.plist], { timeout: LAUNCHCTL_TIMEOUT_MS });
     await this.waitForHealth(settings.mcpPort);
   }
 
   async stop(): Promise<void> {
     if (process.platform !== 'darwin' || typeof process.getuid !== 'function') return;
-    await execute('launchctl', ['bootout', `gui/${process.getuid()}`, this.plist]).catch(() => undefined);
+    await execute('launchctl', ['bootout', `gui/${process.getuid()}`, this.plist], { timeout: LAUNCHCTL_TIMEOUT_MS })
+      .catch(() => undefined);
   }
 
   private async waitForHealth(port: number): Promise<void> {
     let lastError: unknown;
-    for (let attempt = 0; attempt < 50; attempt += 1) {
+    const deadline = Date.now() + HEALTH_TIMEOUT_MS;
+    let delay = 25;
+    while (Date.now() < deadline) {
       try {
         await this.checkHealth(port);
         return;
       } catch (error) {
         lastError = error;
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay = Math.min(delay * 2, 250);
       }
     }
     throw new Error(`Background MCP service did not become healthy: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
   }
 
-  private async checkHealth(port: number): Promise<void> {
-    await new Promise<void>((resolve, reject) => {
+  private async checkHealth(port: number): Promise<boolean> {
+    return new Promise<boolean>(resolve => {
       const request = httpGet({ hostname: '127.0.0.1', port, path: '/health', timeout: 1000 }, response => {
         response.resume();
-        if (response.statusCode === 200) resolve();
-        else reject(new Error(`Health check returned ${response.statusCode ?? 'unknown'}`));
+        resolve(response.statusCode === 200);
       });
       request.on('timeout', () => request.destroy(new Error('Health check timed out')));
-      request.on('error', reject);
+      request.on('error', () => resolve(false));
     });
   }
 }

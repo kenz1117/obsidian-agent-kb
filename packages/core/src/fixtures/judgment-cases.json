@@ -1,0 +1,80 @@
+{
+  "note": "判断力检测的共享用例。TypeScript 与 Python 两套实现都必须通过它——这是跨语言实现的漂移护栏。",
+  "cases": [
+    {
+      "id": "chinese-must",
+      "body": "## 关键内容\n\n每个 Agent 必须使用自己的令牌，否则身份会串。",
+      "judgment": true
+    },
+    {
+      "id": "chinese-should-not",
+      "body": "旧私有原型目录已被物理删除，不应作为接入目标。",
+      "judgment": true
+    },
+    {
+      "id": "chinese-should-verb",
+      "body": "客户端条目应保留稳定的 MCP 注册名 `knowledge`。",
+      "judgment": true
+    },
+    {
+      "id": "chinese-should-with",
+      "body": "身份解析应与客户端传入的 `KB_AGENT_ID` 一致。",
+      "judgment": true
+    },
+    {
+      "id": "chinese-responsible-for",
+      "body": "客户端配置负责选择网关入口并声明 Agent 身份。",
+      "judgment": true
+    },
+    {
+      "id": "chinese-because",
+      "body": "不要默认读取整个知识库，因为会引入不必要的上下文。",
+      "judgment": true
+    },
+    {
+      "id": "chinese-rule-noun",
+      "body": "Agent 写入边界的规则由 AGENT-CONTRACT 定义。",
+      "judgment": true
+    },
+    {
+      "id": "chinese-unless",
+      "body": "除非用户明确要求，否则不要修改 00-contract/。",
+      "judgment": true
+    },
+    {
+      "id": "chinese-steps",
+      "body": "排障步骤：先核对客户端配置，再核对令牌。",
+      "judgment": true
+    },
+    {
+      "id": "chinese-record-only",
+      "body": "## 核心观点\n\n配置文件的路径是 /Users/ken/.codex/config.toml。",
+      "judgment": false
+    },
+    {
+      "id": "chinese-weather",
+      "body": "## 核心观点\n\n今天的天气很好。",
+      "judgment": false
+    },
+    {
+      "id": "chinese-migration-record",
+      "body": "## 核心观点\n\nMiniMax Code 已于 2026-10-25 迁移到 oakb-mcp，并通过显式 Agent 身份完成接入。\n\n## 关键内容\n\n- 新启动命令为 oakb-mcp。\n- 客户端显式设置 KB_AGENT_ID=minimaxcode。\n- stdio 握手通过，运行时识别到 8 个工具。",
+      "judgment": false
+    },
+    {
+      "id": "english-must",
+      "body": "## Key content\n\nEach agent must use its own token, otherwise identities collide.",
+      "judgment": true
+    },
+    {
+      "id": "english-prefer",
+      "body": "Prefer the per-agent token over the shared legacy token.",
+      "judgment": true
+    },
+    {
+      "id": "english-record-only",
+      "body": "## Summary\n\nThe config file lives at /Users/ken/.codex/config.toml and was modified on 2026-10-25.",
+      "judgment": false
+    }
+  ]
+}
